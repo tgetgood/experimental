@@ -1,0 +1,5 @@
+{:deps
+ {org.clojure/clojurescript {:mvn/version "1.10.339"}
+  com.bhauman/figwheel-main {:mvn/version  "0.2.13"}
+  macroexpanse/falloleen {:local/root "/home/thomas/projects/falloleen"}}
+ :paths ["src" "resources" "target"]}
