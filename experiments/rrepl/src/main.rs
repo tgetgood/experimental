@@ -1,10 +1,44 @@
-#![allow(dead_code, unused_variables)]
+#![allow(dead_code, unused_variables, unused_imports)]
 
+use core::hash::Hash;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::io;
 use std::io::Write;
+use std::sync::Arc;
+use std::clone::Clone;
 
-#[derive(Clone, Debug, Hash, PartialEq)]
+/// Abstractions at the bottom
+
+trait Substitute {}
+
+trait BetaReduction {}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Type {
+    Bool,
+    Number,
+    Keyword,
+    String,
+    Symbol,
+    List,
+    Vector,
+    Map,
+    Set,
+    Error
+}
+       
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Value<T: Clone> {
+    kind: Type,
+    val: T
+}
+
+fn val<T: Clone>(x: Value<T>) -> T {
+    x.val.clone()
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord)]
 enum Sexp {
     Bool(bool),
     Symbol(String),
@@ -12,6 +46,7 @@ enum Sexp {
     String(String),
     Number(i64),
     List(Vec<Sexp>),
+    Map(BTreeMap<Sexp, Sexp>),
     Error(String),
 }
 
@@ -22,13 +57,14 @@ impl fmt::Display for Sexp {
         let str = match self {
             Sexp::Bool(x) => x.to_string(),
             Sexp::String(x) => format!("\"{}\"", x.to_string()),
-            Sexp::keyword(x) => format!(":{}", x.to_string()),
+            Sexp::Keyword(x) => format!(":{}", x.to_string()),
             Sexp::Number(x) => x.to_string(),
             Sexp::Error(x) => format!("Error(\"{}\")", x),
             Sexp::Symbol(x) => x.to_string(),
+            Sexp::Map(x) => String::from("{}"),
             Sexp::List(x) => {
                 let xs: Vec<String> = x.iter().map(|x| x.to_string()).collect();
-                format!("({})", xs.join(","))
+                format!("({})", xs.join(", "))
             }
         };
 
@@ -37,6 +73,15 @@ impl fmt::Display for Sexp {
 }
 
 ///// Reader
+/// Missing features:
+/// * keywords
+/// * strings
+/// * collections
+/// * literals
+///
+/// I need a char-by-char reader (with backtracking) and a state machine. Why
+/// not just copy Clojure's reader? well java is too dissimilar, but that's the
+/// idea.
 
 fn split(x: String, delim: String) -> (String, String) {
     (
@@ -98,85 +143,86 @@ fn read(code: String) -> Sexp {
     if code.is_empty() {
         Sexp::Error("no input".to_string())
     } else {
-        let (res, _) = read0(code.replace(",", " "));
+        let (res, _) = read0(code.replace(",", " ").trim().to_string());
         res
     }
 }
 
-///// Meta Circular
-
-/// Very basic lambda construct. No destructuring of args. Every lambda takes
-/// one arg.
-struct Lambda {
-    form: Sexp,
-    arg: Sexp,
-    body: Sexp,
-}
+/// Meta Circular
 
 fn apply(form: Sexp, arg: Sexp) -> Sexp {
     Sexp::Error(String::from("no apply"))
 }
 
-impl IFn for Lambda {
-    fn apply(&self, arg: Sexp) -> Sexp {
-        let Lambda {
-            arg,
-            form,
-            body,
-            ..
-        } = self;
-        Sexp::Error("not implemented".to_string())
-    }
+fn noop(x: Sexp) -> Sexp {
+    Sexp::Error(String::from(""))
 }
 
-fn lambda_p(f: Sexp) -> bool {
-    let fn_sym = "fn".to_string();
-    match f {
-        Sexp::List(l) => match l[0].clone() {
-            Sexp::Symbol(fn_sym) => true,
-            _ => false,
+fn nil() -> Sexp {
+    Sexp::Error(String::from("nil"))
+}
+
+/// Recursively walks `form` and replaces symbols with their values in
+/// `context`. Symbols not in `context` are left unchanged. If `context` is not
+/// a map, returns nil (which is presently an Error.
+fn substitute(context: Sexp, form: Sexp) -> Sexp {
+    match context {
+        Sexp::Map(m) => match form {
+            Sexp::Bool(_) => form,
+            Sexp::Number(_) => form,
+            Sexp::Keyword(_) => form,
+            Sexp::String(_) => form,
+            Sexp::Error(_) => form,
+            Sexp::Symbol(_) => {
+                if m.contains_key(&form) {
+                    m.get(&form).unwrap().clone()
+                } else {
+                    form
+                }
+            }
         },
-        _ => false,
+        _ => nil(),
     }
 }
 
-fn compile_lambda(f: Sexp) -> Lambda {
-    let f = Sexp::Error("not implemented".to_string());
-    Lambda {
-        form: f.clone(),
-        arg: f.clone(),
-        body: f.clone(),
-    }
-}
+fn eval(context: Sexp, form: Sexp) -> Sexp {
+    match form {
+        Sexp::Bool(_) => form,
+        Sexp::Number(_) => form,
+        Sexp::Keyword(_) => form,
+        Sexp::String(_) => form,
+        Sexp::Error(_) => form,
+        Sexp::Symbol(_) => nil(),
 
-fn eval(f: Sexp) -> Sexp {
-    match f {
-        Sexp::Bool(x) => f,
-        Sexp::Number(x) => f,
-        Sexp::Keyword(x) => f,
-        Sexp::String(x) => f,
-        Sexp::Error(x) => f,
-        Sexp::Symbol(x) => Sexp::Error(String::from("Lookup not implemented")),
-        Sexp::List(x) => {
+        Sexp::Map(ref x) => Sexp::Error(String::from("eval map not implemented")),
+        Sexp::List(ref x) => {
             if x.is_empty() {
-                f
+                form
             } else {
-                let (f, args) = x.split_first();
-                apply(eval(f), args.iter().map(eval).collect())
+                let (f, args) = x.split_first().unwrap();
+                apply(
+                    eval(context.clone(), form.clone()),
+                    Sexp::List(
+                        args.iter()
+                            .map(|x| eval(context.clone(), x.clone()))
+                            .collect(),
+                    ),
+                )
             }
         }
     }
 }
 
-///// And a repl
+/// And a repl
 
-fn slurp_expr() -> String {
-  let mut expr = String::new();
-  
-  io::stdin().read_line(&mut expr)
-    .expect("Failed to read line");
-  
-  expr
+fn read_line() -> String {
+    let mut expr = String::new();
+
+    io::stdin()
+        .read_line(&mut expr)
+        .expect("Failed to read line");
+
+    expr
 }
 
 fn main() {
@@ -184,12 +230,13 @@ fn main() {
     loop {
         print!("> ");
         io::stdout().flush().unwrap();
-        let expr = slurp_expr();
+        let expr = read_line();
         if expr == String::from("(quit)\n") || expr == String::from("") {
             println!("Thanks for all the fish");
             break;
         } else {
-            println!("{}", eval(read(expr)));
+            println!("{:?}", read(expr.clone()));
+            println!("{}", eval(Sexp::Map(BTreeMap::new()), read(expr)));
         }
     }
 }
