@@ -1,59 +1,50 @@
 (ns clj-vulkan.core
-  (:import [org.graalvm.polyglot Context Source]
-           [org.graalvm.polyglot.io ByteSequence]
-           [java.io File]))
+  (:import [org.lwjgl PointerBuffer]
+           [org.lwjgl.glfw GLFW GLFWVulkan]
+           [org.lwjgl.system MemoryUtil MemoryStack]
+           [org.lwjgl.vulkan VK10]
+           [org.lwjgl.vulkan VkInstance VkApplicationInfo VkInstanceCreateInfo]))
 
-(def context
-  (-> (Context/newBuilder (into-array ["llvm"]))
-      (.allowNativeAccess true)
-      ;; FIXME: Ideally, we'd create a new FileSystem with only the native libs
-      ;; we need.
-      (.allowIO true)
-      .build))
+(def null MemoryUtil/NULL)
 
-(def clang-cmd
-  ["/usr/lib/jvm/java-11-graalvm/languages/llvm/native/bin/clang"
-   "-flto"
-   "-O1"])
+(defonce window (atom nil))
 
-(defn assemble
-  "Takes a string representing llvm IR, and a Graal Source object."
-  ;; TODO: Dump the code in a temp file, compile to another tempfile, read elf
-  ;; into ram and delete both files.
-  ;; What about repeatability and persistence? The pipeline is not
-  ;; stable. Anything we delete will not necessarily be reconstructable.
-  [ir]
-  (let [in-file  (File/createTempFile "ir-" ".ll")
-        out-file (File/createTempFile "bc-" ".bc")]
-    (spit in-file ir)
-    (let [p   (.exec (Runtime/getRuntime) (into-array
-                                           (concat clang-cmd
-                                                   [(str in-file)
-                                                    "-o"
-                                                    (str out-file)])))]
+(defn init-window []
+  (when (GLFW/glfwInit)
+    (reset! window (GLFW/glfwCreateWindow (int 800) (int 600) "The Window" null null ))))
 
-      (.waitFor p)
-      (.delete in-file)
-      (.deleteOnExit out-file)
-      out-file)))
+(defn cleanup []
+  (GLFW/glfwDestroyWindow @window)
+  (GLFW/glfwTerminate))
 
-(defn source [bc]
-  (.buildLiteral (Source/newBuilder "llvm" bc)))
+(defn event-loop []
+  (loop []
+    (when (not (GLFW/glfwWindowShouldClose @window))
+      (GLFW/glfwPollEvents)
+      (recur))))
 
-(def code
-  "
+(defonce instance (atom nil))
 
-define i64 @addtest(i64 %x, i64 %y) {
-  %1 = add i64 %x, %y
-  ret i64 %1
-}
+(defn init-vulkan []
+  (try
+    (let [stack      (MemoryStack/stackPush)
+          appInfo    (VkApplicationInfo/callocStack stack)
+          createInfo (VkInstanceCreateInfo/callocStack stack)
+          ptr        (.mallocPointer stack 1)]
 
-define i64 @main() {
-  %1 = call i64 @addtest (i64 7, i64 19)
-  ret i64 %1
-}
-")
+      (doto appInfo
+        (.sType VK10/VK_STRUCTURE_TYPE_APPLICATION_INFO)
+        (.pApplicationName (.UTF8Safe stack "Demo"))
+        (.applicationVersion (VK10/VK_MAKE_VERSION 1 0 0))
+        (.pEngineName (.UTF8Safe stack "No Engine"))
+        (.engineVersion (VK10/VK_MAKE_VERSION 1 0 0))
+        (.apiVersion VK10/VK_API_VERSION_1_0))
 
+      (doto createInfo
+        (.sType VK10/VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
+        (.pApplicationInfo appInfo)
+        (.ppEnabledExtensionNames (GLFWVulkan/glfwGetRequiredInstanceExtensions))
+        (.ppEnabledLayerNames nil))
 
-(defn f [x]
-  (+ x :12))
+      (when (VK10/vkCreateInstance createInfo nil ptr)
+        (reset! instance (VkInstance. (.get ptr 0) createInfo))))))
