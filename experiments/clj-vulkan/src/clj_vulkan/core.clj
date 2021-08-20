@@ -1,6 +1,7 @@
 (ns clj-vulkan.core
   (:import [org.lwjgl.glfw GLFW GLFWVulkan]
            [org.lwjgl.system MemoryStack MemoryUtil]
+           [org.lwjgl PointerBuffer]
            [org.lwjgl.vulkan
             VK10
             VkApplicationInfo
@@ -8,25 +9,49 @@
             VkInstanceCreateInfo
             VkLayerProperties]))
 
+(defn reducible-pbuffer [this]
+  (reify clojure.lang.IReduce
+    (reduce [_ f start]
+      (let [capacity (.capacity this)]
+        (loop [i   0
+               ret start]
+          (if (clojure.lang.RT/isReduced ret)
+            (deref ret)
+            (if (< i capacity)
+              (recur (inc i) (.invoke f ret (.get this i)))
+              ret)))))
+    (reduce [_ f]
+      (let [capacity (.capacity this)]
+        (when (< 0 capacity)
+          (loop [i   1
+                 ret (.get this 0)]
+            (if (clojure.lang.RT/isReduced ret)
+              (deref ret)
+              (if (< i capacity)
+                (recur (inc i) (.invoke f ret (.get this i)))
+                ret))))))))
+
+(def bufvec
+  "Given a PointerBuffer, returns a normal vector containing the pointers.")
 (defn gcalloc
   "Given a function of 2 args in the vulkan pattern of &count, &ptr, returns a
   vector containing all things pointed to. That's a terrible description."
   ;; Experimental. Read: does not work
   [f & [allocator]]
   (try
-    (let [stack     (MemoryStack/stackPush)
-          count-ptr (.mallocInt stack 1)]
+    (let [^MemoryStack stack (MemoryStack/stackPush)
+          ^ints count-ptr    (.mallocInt stack 1)]
       (f count-ptr nil)
       (let [num  (.get count-ptr 0)
             ptrs (.mallocPointer stack num)]
         (f count-ptr ptrs)
-        (into [] ptrs)))))
+        (into [] (reducible-pbuffer ptrs))))))
 
 (defn validation-layers
   "Returns set of all validation layers supported by this system."
   []
-  #_(gcalloc #(VK10/vkEnumerateInstanceLayerProperties %1 %2))
-  (try
+  (gcalloc #(VK10/vkEnumerateInstanceLayerProperties %1 %2))
+  #_(try
     (let [stack (MemoryStack/stackPush)
           ptr   (.mallocInt stack 1)]
       ()
