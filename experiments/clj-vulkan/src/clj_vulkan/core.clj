@@ -7,6 +7,7 @@
             VkApplicationInfo
             VkInstance
             VkInstanceCreateInfo
+            VkPhysicalDevice
             VkLayerProperties]))
 
 (defn reducible-pbuffer [this]
@@ -36,22 +37,23 @@
 (defn gcalloc
   "Given a function of 2 args in the vulkan pattern of &count, &ptr, returns a
   vector containing all things pointed to. That's a terrible description."
-  ;; Experimental. Read: does not work
-  [f & [allocator]]
+  ;; Experimental.
+  [f]
   (try
-    (let [^MemoryStack stack (MemoryStack/stackPush)
-          ^ints count-ptr    (.mallocInt stack 1)]
+    (let [stack     (MemoryStack/stackPush)
+          count-ptr (.mallocInt stack 1)]
       (f count-ptr nil)
       (let [num  (.get count-ptr 0)
             ptrs (.mallocPointer stack num)]
         (f count-ptr ptrs)
-        (into [] (reducible-pbuffer ptrs))))))
+        ptrs
+        #_(into [] (reducible-pbuffer ptrs))))))
 
 (defn validation-layers
   "Returns set of all validation layers supported by this system."
   []
-  (gcalloc #(VK10/vkEnumerateInstanceLayerProperties %1 %2))
-  #_(try
+  #_(gcalloc #(VK10/vkEnumerateInstanceLayerProperties %1 %2))
+  (try
     (let [stack (MemoryStack/stackPush)
           ptr   (.mallocInt stack 1)]
       ()
@@ -60,6 +62,7 @@
         (VK10/vkEnumerateInstanceLayerProperties ptr layer-ptrs)
         (into #{} layer-ptrs)))))
 
+()
 (defn check-validation-layers [target]
   (let [supported (into #{} (map #(.layerNameString %)) (validation-layers))]
     (every? #(contains? supported %) target)))
@@ -124,6 +127,15 @@
 
         (when (VK10/vkCreateInstance createInfo nil ptr)
           (VkInstance. (.get ptr 0) createInfo))))))
+
+(def suitable-device? (constantly true))
+
+(defn physical-device [instance]
+  (->> #(VK10/vkEnumeratePhysicalDevices instance %1 %2)
+       bufvec
+       (map #(VkPhysicalDevice. % instance))
+       (filter suitable-device?)
+       first))
 
 (defonce window (atom nil))
 (defonce instance (atom nil))
