@@ -32,22 +32,19 @@
                 (recur (inc i) (.invoke f ret (.get this i)))
                 ret))))))))
 
-(def bufvec
-  "Given a PointerBuffer, returns a normal vector containing the pointers.")
 (defn gcalloc
-  "Given a function of 2 args in the vulkan pattern of &count, &ptr, returns a
-  vector containing all things pointed to. That's a terrible description."
+    "Allocates a pointerbuffer to read the results of `f`, reads the results and
+    dumps them into a (heap allocated) vector."
   ;; Experimental.
   [f]
   (try
-    (let [stack     (MemoryStack/stackPush)
-          count-ptr (.mallocInt stack 1)]
+    (let [^MemoryStack stack (MemoryStack/stackPush)
+          ^ints count-ptr    (.mallocInt stack 1)]
       (f count-ptr nil)
-      (let [num  (.get count-ptr 0)
-            ptrs (.mallocPointer stack num)]
+      (let [num                 (.get count-ptr 0)
+            ^PointerBuffer ptrs (.mallocPointer stack num)]
         (f count-ptr ptrs)
-        ptrs
-        #_(into [] (reducible-pbuffer ptrs))))))
+        (into [] (reducible-pbuffer ptrs))))))
 
 (defn validation-layers
   "Returns set of all validation layers supported by this system."
@@ -80,7 +77,7 @@
 
 (defn c-str
   "Given a clojure (java) String, returns a pointer to a stack allocated UTF8
-   C string. Why? Don't ask. Returns `nil` is `s` is `nil`."
+   C string. Why? Don't ask. Returns `nil` if `s` is `nil`."
   [s]
   (.UTF8Safe (MemoryStack/stackGet) s))
 
@@ -132,7 +129,7 @@
 
 (defn physical-device [instance]
   (->> #(VK10/vkEnumeratePhysicalDevices instance %1 %2)
-       bufvec
+       gcalloc
        (map #(VkPhysicalDevice. % instance))
        (filter suitable-device?)
        first))
