@@ -1,5 +1,6 @@
 (ns clj-vulkan.core
   (:require [clj-vulkan.read-list :as lists]
+            [clj-vulkan.api :as api]
             [clj-vulkan.c-utils :as c])
   (:import [org.lwjgl.glfw GLFW GLFWVulkan]
            [org.lwjgl.system MemoryStack MemoryUtil]
@@ -68,10 +69,6 @@
        (map #(VkPhysicalDevice. % instance))
        (filter suitable-device?)
        first))
-
-(defn queue-families [device]
-  (->> #(VK10/vkGetPhysicalDeviceQueueFamilyProperties device %1 %2)
-       lists/gcalloc))
 
 (defonce graphical-state (atom nil))
 
