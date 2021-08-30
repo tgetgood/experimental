@@ -60,7 +60,25 @@
         (when (VK11/vkCreateInstance createInfo nil ptr)
           (VkInstance. (.get ptr 0) createInfo))))))
 
-(def suitable-device? (constantly true))
+(def queue-flags
+  (->> api/enums
+       (filter #(= "VkQueueFlagBits" (:name %)))
+       first))
+
+(defn bit-check [pos x]
+  (odd? (unsigned-bit-shift-right x pos)))
+
+(defn suitable-device? [device]
+  (let [gbit   (->> queue-flags
+                    :values
+                    (filter #(= "VK_QUEUE_GRAPHICS_BIT" (:name %)))
+                    first
+                    :value)
+        queues (->> device
+                    lists/queue-families
+                    (map api/parse)
+                    (map :queueFlags))]
+    (some (partial bit-check gbit) queues)))
 
 (defn physical-device [instance]
   (->> #(VK11/vkEnumeratePhysicalDevices instance %1 %2)

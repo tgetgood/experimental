@@ -49,3 +49,36 @@
                              (lwjgl-read-str v)
                              v)]))
        (into {})))
+
+(defn vname->clj [s]
+  s)
+
+(defn parse-enum [node]
+  (let [{:keys [name comment]} (-> node :attrs)]
+    (merge
+     (when comment
+       {:doc comment})
+     {:name   name
+      :values (->> node
+                   :content
+                   (map :attrs)
+                   (mapv (fn [{:keys [name comment value type bitpos]}]
+                           (merge
+                            {:name            (vname->clj name)
+                             :vulkan-api-name name}
+                            (when bitpos
+                              {:value     (Integer/parseUnsignedInt bitpos)
+                               :raw-value value})
+                            (when value
+                              {:value value})
+                            (when comment
+                              {:doc comment})
+                            (when type
+                              {:type type})))))})))
+
+(def enums
+  (->> api-doc
+       xml-seq
+       (filter #(= :enums (:tag %)))
+       (map parse-enum)
+       (into [])))
