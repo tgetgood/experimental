@@ -3,7 +3,7 @@
   (:import org.lwjgl.PointerBuffer
            org.lwjgl.system.MemoryStack
            [org.lwjgl.vulkan
-            VK10
+            VK11
             VkLayerProperties
             VkQueueFamilyProperties
             VkPhysicalDevice]))
@@ -35,9 +35,8 @@
     dumps them into a (heap allocated) vector."
   ;; Experimental.
   [f]
-  (try
-    (let [^MemoryStack stack (MemoryStack/stackPush)
-          ^ints count-ptr    (.mallocInt stack 1)]
+  (with-open [^MemoryStack stack (MemoryStack/stackPush)]
+    (let [^ints count-ptr    (.mallocInt stack 1)]
       (f count-ptr nil)
       (let [num                 (.get count-ptr 0)
             ^PointerBuffer ptrs (.mallocPointer stack num)]
@@ -47,22 +46,20 @@
 (defn validation-layers
   "Returns set of all validation layers supported by this system."
   []
-  (try
-    (let [stack (MemoryStack/stackPush)
-          c*   (.mallocInt stack 1)]
-      (VK10/vkEnumerateInstanceLayerProperties c* nil)
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [c*   (.mallocInt stack 1)]
+      (VK11/vkEnumerateInstanceLayerProperties c* nil)
       (let [c         (.get c* 0)
             layers* (VkLayerProperties/mallocStack c stack)]
-        (VK10/vkEnumerateInstanceLayerProperties c* layers*)
+        (VK11/vkEnumerateInstanceLayerProperties c* layers*)
         (into [] layers*)))))
 
 
 (defn queue-families [^VkPhysicalDevice device]
-  (try
-    (let [stack (MemoryStack/stackPush)
-          c* (.mallocInt stack 1)]
-      (VK10/vkGetPhysicalDeviceQueueFamilyProperties device c* nil)
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [c* (.mallocInt stack 1)]
+      (VK11/vkGetPhysicalDeviceQueueFamilyProperties device c* nil)
       (let [c (.get c* 0)
             f* (VkQueueFamilyProperties/mallocStack c stack)]
-        (VK10/vkGetPhysicalDeviceQueueFamilyProperties device c* f*)
+        (VK11/vkGetPhysicalDeviceQueueFamilyProperties device c* f*)
         (into [] f*)))))

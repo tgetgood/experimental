@@ -6,7 +6,7 @@
            [org.lwjgl.system MemoryStack MemoryUtil]
            [org.lwjgl PointerBuffer]
            [org.lwjgl.vulkan
-            VK10
+            VK11
             VkApplicationInfo
             VkInstance
             VkInstanceCreateInfo
@@ -24,7 +24,7 @@
     (GLFW/glfwCreateWindow (int width) (int height) title c/null c/null)))
 
 (defn teardown-vulkan [instance]
-  (VK10/vkDestroyInstance instance nil))
+  (VK11/vkDestroyInstance instance nil))
 
 (defn teardown-glfw [window]
   (GLFW/glfwDestroyWindow window)
@@ -38,33 +38,32 @@
 
 (defn init-vulkan [{:keys [validation-layers]}]
   (when (check-validation-layers validation-layers)
-    (try
-      (let [stack      (MemoryStack/stackPush)
-            appInfo    (VkApplicationInfo/callocStack stack)
+    (with-open [stack (MemoryStack/stackPush)]
+      (let [appInfo    (VkApplicationInfo/callocStack stack)
             createInfo (VkInstanceCreateInfo/callocStack stack)
             ptr        (.mallocPointer stack 1)]
 
         (doto appInfo
-          (.sType VK10/VK_STRUCTURE_TYPE_APPLICATION_INFO)
+          (.sType VK11/VK_STRUCTURE_TYPE_APPLICATION_INFO)
           (.pApplicationName (c/str "Demo"))
-          (.applicationVersion (VK10/VK_MAKE_VERSION 1 0 0))
+          (.applicationVersion (VK11/VK_MAKE_VERSION 1 0 0))
           (.pEngineName (c/str "No Engine"))
-          (.engineVersion (VK10/VK_MAKE_VERSION 1 0 0))
-          (.apiVersion VK10/VK_API_VERSION_1_0))
+          (.engineVersion (VK11/VK_MAKE_VERSION 1 0 0))
+          (.apiVersion VK11/VK_API_VERSION_1_0))
 
         (doto createInfo
-          (.sType VK10/VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
+          (.sType VK11/VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
           (.pApplicationInfo appInfo)
           (.ppEnabledExtensionNames (GLFWVulkan/glfwGetRequiredInstanceExtensions))
           (.ppEnabledLayerNames (c/pbuffer (map c/str validation-layers))) )
 
-        (when (VK10/vkCreateInstance createInfo nil ptr)
+        (when (VK11/vkCreateInstance createInfo nil ptr)
           (VkInstance. (.get ptr 0) createInfo))))))
 
 (def suitable-device? (constantly true))
 
 (defn physical-device [instance]
-  (->> #(VK10/vkEnumeratePhysicalDevices instance %1 %2)
+  (->> #(VK11/vkEnumeratePhysicalDevices instance %1 %2)
        lists/gcalloc
        (map #(VkPhysicalDevice. % instance))
        (filter suitable-device?)
