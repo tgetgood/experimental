@@ -125,9 +125,9 @@
 
       (when (= (VK11/vkCreateDevice device dc nil &context) VK11/VK_SUCCESS)
         (let [context (VkDevice. (.get &context 0) device dc)
-              queue&  (.pointers stack VK11/VK_NULL_HANDLE)]
-          (VK11/vkGetDeviceQueue context qfi 0 queue&)
-          {:context context :queue (VkQueue. (.get queue& 0) context)})))))
+              &queue  (.pointers stack VK11/VK_NULL_HANDLE)]
+          (VK11/vkGetDeviceQueue context qfi 0 &queue)
+          {:context context :queue (VkQueue. (.get &queue 0) context)})))))
 
 (defn init-vulkan [opts]
   (let [instance                (create-instance opts)
