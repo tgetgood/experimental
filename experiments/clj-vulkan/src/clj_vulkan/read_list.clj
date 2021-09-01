@@ -47,19 +47,19 @@
   "Returns set of all validation layers supported by this system."
   []
   (with-open [stack (MemoryStack/stackPush)]
-    (let [c*   (.mallocInt stack 1)]
-      (VK11/vkEnumerateInstanceLayerProperties c* nil)
-      (let [c         (.get c* 0)
-            layers* (VkLayerProperties/mallocStack c stack)]
-        (VK11/vkEnumerateInstanceLayerProperties c* layers*)
-        (into [] layers*)))))
+    (let [&c   (.mallocInt stack 1)]
+      (VK11/vkEnumerateInstanceLayerProperties &c nil)
+      (let [c         (.get &c 0)
+            &layers (VkLayerProperties/mallocStack c stack)]
+        (VK11/vkEnumerateInstanceLayerProperties &c &layers)
+        (into [] &layers)))))
 
 
 (defn queue-families [^VkPhysicalDevice device]
   (with-open [stack (MemoryStack/stackPush)]
-    (let [c* (.mallocInt stack 1)]
-      (VK11/vkGetPhysicalDeviceQueueFamilyProperties device c* nil)
-      (let [c (.get c* 0)
-            f* (VkQueueFamilyProperties/mallocStack c stack)]
-        (VK11/vkGetPhysicalDeviceQueueFamilyProperties device c* f*)
-        (into [] f*)))))
+    (let [&c (.mallocInt stack 1)]
+      (VK11/vkGetPhysicalDeviceQueueFamilyProperties device &c nil)
+      (let [c (.get &c 0)
+            &f (VkQueueFamilyProperties/mallocStack c stack)]
+        (VK11/vkGetPhysicalDeviceQueueFamilyProperties device &c &f)
+        (into [] &f)))))

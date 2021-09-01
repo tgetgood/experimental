@@ -64,7 +64,7 @@
           (.ppEnabledExtensionNames (GLFWVulkan/glfwGetRequiredInstanceExtensions))
           (.ppEnabledLayerNames (c/pbuffer (map c/str validation-layers))) )
 
-        (when (VK11/vkCreateInstance createInfo nil ptr)
+        (when (= (VK11/vkCreateInstance createInfo nil ptr) VK11/VK_SUCCESS)
           (VkInstance. (.get ptr 0) createInfo))))))
 
 (def queue-flags
@@ -111,7 +111,7 @@
           qc       (VkDeviceQueueCreateInfo/callocStack 1 stack)
           df       (VkPhysicalDeviceFeatures/callocStack stack)
           dc       (VkDeviceCreateInfo/callocStack stack)
-          context& (.pointers stack VK11/VK_NULL_HANDLE)]
+          &context (.pointers stack VK11/VK_NULL_HANDLE)]
 
       (doto qc
         (.sType VK11/VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
@@ -123,8 +123,8 @@
         (.pQueueCreateInfos qc)
         (.pEnabledFeatures df))
 
-      (when (VK11/vkCreateDevice device dc nil context&)
-        (let [context (VkDevice. (.get context& 0) device dc)
+      (when (= (VK11/vkCreateDevice device dc nil &context) VK11/VK_SUCCESS)
+        (let [context (VkDevice. (.get &context 0) device dc)
               queue&  (.pointers stack VK11/VK_NULL_HANDLE)]
           (VK11/vkGetDeviceQueue context qfi 0 queue&)
           {:context context :queue (VkQueue. (.get queue& 0) context)})))))
