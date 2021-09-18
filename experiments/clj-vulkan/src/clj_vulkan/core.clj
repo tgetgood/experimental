@@ -3,10 +3,16 @@
             [clj-vulkan.api :as api]
             [clj-vulkan.c-utils :as c])
   (:import [org.lwjgl.glfw GLFW GLFWVulkan]
-           [org.lwjgl.system MemoryStack MemoryUtil]
+           [org.lwjgl.system MemoryStack MemoryUtil Callback]
            [org.lwjgl PointerBuffer]
            [org.lwjgl.vulkan
+            EXTDebugUtils
+            VkDebugUtilsMessengerCreateInfoEXT
+            VkDebugUtilsMessengerCallbackDataEXT
+            KHRSurface
             VK11
+            VkDebugUtilsMessengerCallbackEXT
+            VkDebugUtilsMessengerCallbackEXTI
             VkApplicationInfo
             VkDeviceQueueCreateInfo
             VkPhysicalDeviceFeatures
@@ -28,8 +34,9 @@
   (when (GLFW/glfwInit)
     (GLFW/glfwCreateWindow (int width) (int height) title c/null c/null)))
 
-(defn teardown-vulkan [{:keys [instance context] :as state}]
+(defn teardown-vulkan [{:keys [instance context surface] :as state}]
   (VK11/vkDestroyDevice context nil)
+  (KHRSurface/vkDestroySurfaceKHR instance surface nil)
   (VK11/vkDestroyInstance instance nil)
   nil)
 
@@ -42,6 +49,34 @@
     (when (not (GLFW/glfwWindowShouldClose window))
       (GLFW/glfwPollEvents)
       (recur))))
+
+(def dbl
+  (proxy [VkDebugUtilsMessengerCallbackEXT]
+      []
+    (invoke [a b cb-data d]
+      (let [data (VkDebugUtilsMessengerCallbackDataEXT/create cb-data)]
+        (println (.pMessageString data))
+        VK11/VK_FALSE))))
+
+(defn create-debug-messenger []
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [ci (VkDebugUtilsMessengerCreateInfoEXT/callocStack stack)]
+      (doto ci
+        (.sType
+         EXTDebugUtils/VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT)
+
+        (.messageSeverity
+         (bit-or EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT))
+
+        (.messageType
+         (bit-or EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+                 (EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)))
+
+        (.pfnUserCallback dbl)))))
 
 (defn create-instance [{:keys [validation-layers]}]
   (when (check-validation-layers validation-layers)
@@ -62,7 +97,8 @@
           (.sType VK11/VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
           (.pApplicationInfo appInfo)
           (.ppEnabledExtensionNames (GLFWVulkan/glfwGetRequiredInstanceExtensions))
-          (.ppEnabledLayerNames (c/pbuffer (map c/str validation-layers))) )
+          (.ppEnabledLayerNames (c/pbuffer (map c/str validation-layers)))
+          (.pNext (.address (create-debug-messenger))))
 
         (when (= (VK11/vkCreateInstance createInfo nil ptr) VK11/VK_SUCCESS)
           (VkInstance. (.get ptr 0) createInfo))))))
@@ -75,7 +111,7 @@
 (defn bit-check [pos x]
   (odd? (unsigned-bit-shift-right x pos)))
 
-(defn suitable-queue-family? [qf]
+(defn suitable-queue-family? [opts qf]
   (let [gbit   (->> queue-flags
                     :values
                     (filter #(= "VK_QUEUE_GRAPHICS_BIT" (:name %)))
@@ -83,26 +119,26 @@
                     :value)]
     (bit-check gbit (:queueFlags qf))))
 
-(defn queue-family-index [device]
+(defn queue-family-index [opts device]
   (->> device
        lists/queue-families
        (map api/parse)
        (zipmap (range))
-       (filter (fn [[k v]] (suitable-queue-family? v)))
+       (filter (fn [[k v]] (suitable-queue-family? opts v)))
        (map key)
        first))
 
-(defn suitable-device? [device]
+(defn suitable-device? [opts device]
   (->> device
        lists/queue-families
        (map api/parse)
        (some suitable-queue-family?)))
 
-(defn physical-device [instance]
+(defn physical-device [{:keys [surface instance]}]
   (->> #(VK11/vkEnumeratePhysicalDevices instance %1 %2)
        lists/gcalloc
        (map #(VkPhysicalDevice. % instance))
-       (filter suitable-device?)
+       (filter (partial suitable-device? {:surface surface}))
        first))
 
 (defn init-device [device]
@@ -128,6 +164,14 @@
               &queue  (.pointers stack VK11/VK_NULL_HANDLE)]
           (VK11/vkGetDeviceQueue context qfi 0 &queue)
           {:context context :queue (VkQueue. (.get &queue 0) context)})))))
+
+(defn create-surface [instance window]
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [&surface (.longs stack VK11/VK_NULL_HANDLE)]
+      (let [o  (GLFWVulkan/glfwCreateWindowSurface instance window nil &surface)]
+        (println o)
+        (when (= VK11/VK_SUCCESS o)
+          (.get &surface 0))))))
 
 (defn init-vulkan [opts]
   (let [instance                (create-instance opts)
