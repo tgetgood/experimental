@@ -134,6 +134,14 @@
       (KHRSurface/vkGetPhysicalDeviceSurfaceSupportKHR device i surface p?)
       (= VK11/VK_TRUE (.get p? 0)))))
 
+(defn swapchain? [device {:keys [extensions]}]
+  (let [supported (->> device
+                       lists/device-extensions
+                       (map api/parse)
+                       (map :extensionName)
+                       (into #{}))]
+    (every? #(contains? supported %) extensions)))
+
 (defn queue-family-index [device surface]
   (->> device
        lists/queue-families
@@ -150,17 +158,17 @@
   guaranteed to be the case in specialised hardware setups.
   TOOO: Confirm that this *is* a reasonable assumption in most personal
   computing setups."
-  [device surface]
-  (not (nil? (queue-family-index device surface))))
+  [device surface config]
+  (and (swapchain? device config) (not (nil? (queue-family-index device surface)))))
 
-(defn physical-device [instance surface]
+(defn physical-device [instance surface config]
   (->> #(VK11/vkEnumeratePhysicalDevices instance %1 %2)
        lists/gcalloc
        (map #(VkPhysicalDevice. % instance))
-       (filter #(suitable-device? % surface))
+       (filter #(suitable-device? % surface config))
        first))
 
-(defn create-device [device surface]
+(defn create-device [device surface {:keys [validation-layers extensions]}]
   (with-open [stack (MemoryStack/stackPush)]
     (let [qfi      (queue-family-index device surface)
           qc       (VkDeviceQueueCreateInfo/callocStack 1 stack)
@@ -176,6 +184,8 @@
       (doto dc
         (.sType VK11/VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO)
         (.pQueueCreateInfos qc)
+        (.ppEnabledLayerNames (c/pbuffer (map c/str validation-layers)))
+        (.ppEnabledExtensionNames (c/pbuffer (map c/str extensions)))
         (.pEnabledFeatures df))
 
       (when (= (VK11/vkCreateDevice device dc nil &context) VK11/VK_SUCCESS)
@@ -197,8 +207,8 @@
   (let [window   (create-window (:window config))
         instance (create-instance config)
         surface  (create-surface instance window)
-        pdevice  (physical-device instance surface)
-        device   (create-device pdevice surface)]
+        pdevice  (physical-device instance surface config)
+        device   (create-device pdevice surface config)]
     (reset! graphical-state
             (merge
              {:window          window
@@ -214,9 +224,10 @@
 
 (def config
   {:validation-layers #{"VK_LAYER_KHRONOS_validation"}
+   :extensions        #{"VK_KHR_swapchain"}
    :window            {:width  800
                        :height 600
-                       :title "CLJ Vulkan test"}})
+                       :title  "CLJ Vulkan test"}})
 
 (defn go! []
   )

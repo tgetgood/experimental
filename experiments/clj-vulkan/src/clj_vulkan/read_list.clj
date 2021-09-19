@@ -6,6 +6,7 @@
             VK11
             VkLayerProperties
             VkQueueFamilyProperties
+            VkExtensionProperties
             VkPhysicalDevice]))
 
 (defn reducible-pbuffer [this]
@@ -62,4 +63,13 @@
       (let [c (.get &c 0)
             &f (VkQueueFamilyProperties/mallocStack c stack)]
         (VK11/vkGetPhysicalDeviceQueueFamilyProperties device &c &f)
+        (into [] &f)))))
+
+(defn device-extensions [^VkPhysicalDevice device]
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [&c (.mallocInt stack 1)]
+      (VK11/vkEnumerateDeviceExtensionProperties device "" &c nil)
+      (let [c (.get &c 0)
+            &f (VkExtensionProperties/mallocStack c stack)]
+        (VK11/vkEnumerateDeviceExtensionProperties device "" &c &f)
         (into [] &f)))))
