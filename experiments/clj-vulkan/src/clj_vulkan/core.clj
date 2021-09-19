@@ -24,25 +24,26 @@
             VkPhysicalDevice
             VkLayerProperties]))
 
+;;;;;
+;; GLFW
+;;;;;
 
-(defn check-validation-layers [target]
-  (let [supported (into #{} (map #(.layerNameString %)) (lists/validation-layers))]
-    (every? #(contains? supported %) target)))
-
-
-(defn init-window [{:keys [width height ^String title]}]
+(defn create-window [{:keys [width height ^String title]}]
   (when (GLFW/glfwInit)
+    (GLFW/glfwWindowHint GLFW/GLFW_CLIENT_API GLFW/GLFW_NO_API)
+    (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_FALSE)
     (GLFW/glfwCreateWindow (int width) (int height) title c/null c/null)))
-
-(defn teardown-vulkan [{:keys [instance context surface] :as state}]
-  (VK11/vkDestroyDevice context nil)
-  (KHRSurface/vkDestroySurfaceKHR instance surface nil)
-  (VK11/vkDestroyInstance instance nil)
-  nil)
 
 (defn teardown-glfw [window]
   (GLFW/glfwDestroyWindow window)
   (GLFW/glfwTerminate))
+
+;;;;; ???
+
+(defn teardown-vulkan [{:keys [instance context surface]}]
+  (VK11/vkDestroyDevice context nil)
+  (KHRSurface/vkDestroySurfaceKHR instance surface nil)
+  (VK11/vkDestroyInstance instance nil))
 
 (defn event-loop [window]
   (loop []
@@ -50,10 +51,13 @@
       (GLFW/glfwPollEvents)
       (recur))))
 
-(def dbl
-  (proxy [VkDebugUtilsMessengerCallbackEXT]
-      []
-    (invoke [a b cb-data d]
+;;;;;
+;; Vulkan init logging
+;;;;;
+
+(def debug-logger
+  (reify VkDebugUtilsMessengerCallbackEXTI
+    (invoke [_ _ _ cb-data _]
       (let [data (VkDebugUtilsMessengerCallbackDataEXT/create cb-data)]
         (println (.pMessageString data))
         VK11/VK_FALSE))))
@@ -76,7 +80,11 @@
                  EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
                  (EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)))
 
-        (.pfnUserCallback dbl)))))
+        (.pfnUserCallback debug-logger)))))
+
+(defn check-validation-layers [target]
+  (let [supported (into #{} (map #(.layerNameString %)) (lists/validation-layers))]
+    (every? #(contains? supported %) target)))
 
 (defn create-instance [{:keys [validation-layers]}]
   (when (check-validation-layers validation-layers)
@@ -111,39 +119,50 @@
 (defn bit-check [pos x]
   (odd? (unsigned-bit-shift-right x pos)))
 
-(defn suitable-queue-family? [opts qf]
-  (let [gbit   (->> queue-flags
-                    :values
-                    (filter #(= "VK_QUEUE_GRAPHICS_BIT" (:name %)))
-                    first
-                    :value)]
+(defn suitable-queue-family? [qf]
+  (let [gbit (->> queue-flags
+                  :values
+                  (filter #(= "VK_QUEUE_GRAPHICS_BIT" (:name %)))
+                  first
+                  :value)]
     (bit-check gbit (:queueFlags qf))))
 
-(defn queue-family-index [opts device]
+(defn presentation-support? [i device surface]
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [p? (.ints stack VK11/VK_FALSE)]
+
+      (KHRSurface/vkGetPhysicalDeviceSurfaceSupportKHR device i surface p?)
+      (= VK11/VK_TRUE (.get p? 0)))))
+
+(defn queue-family-index [device surface]
   (->> device
        lists/queue-families
        (map api/parse)
        (zipmap (range))
-       (filter (fn [[k v]] (suitable-queue-family? opts v)))
+       (filter (fn [[k v]] (and (presentation-support? k device surface)
+                                (suitable-queue-family? v))))
        (map key)
        first))
 
-(defn suitable-device? [opts device]
-  (->> device
-       lists/queue-families
-       (map api/parse)
-       (some suitable-queue-family?)))
+(defn suitable-device?
+  "Note: We require at present that there exists a device in the system which
+  supports a queue family capable of both drawing and presentation. This isn't
+  guaranteed to be the case in specialised hardware setups.
+  TOOO: Confirm that this *is* a reasonable assumption in most personal
+  computing setups."
+  [device surface]
+  (not (nil? (queue-family-index device surface))))
 
-(defn physical-device [{:keys [surface instance]}]
+(defn physical-device [instance surface]
   (->> #(VK11/vkEnumeratePhysicalDevices instance %1 %2)
        lists/gcalloc
        (map #(VkPhysicalDevice. % instance))
-       (filter (partial suitable-device? {:surface surface}))
+       (filter #(suitable-device? % surface))
        first))
 
-(defn init-device [device]
+(defn create-device [device surface]
   (with-open [stack (MemoryStack/stackPush)]
-    (let [qfi      (queue-family-index device)
+    (let [qfi      (queue-family-index device surface)
           qc       (VkDeviceQueueCreateInfo/callocStack 1 stack)
           df       (VkPhysicalDeviceFeatures/callocStack stack)
           dc       (VkDeviceCreateInfo/callocStack stack)
@@ -169,30 +188,29 @@
   (with-open [stack (MemoryStack/stackPush)]
     (let [&surface (.longs stack VK11/VK_NULL_HANDLE)]
       (let [o  (GLFWVulkan/glfwCreateWindowSurface instance window nil &surface)]
-        (println o)
         (when (= VK11/VK_SUCCESS o)
           (.get &surface 0))))))
-
-(defn init-vulkan [opts]
-  (let [instance                (create-instance opts)
-        device                  (physical-device instance)
-        {:keys [context queue]} (init-device device)]
-    {:instance instance
-     :device   device
-     :context  context
-     :queue    queue}))
-
 
 (defonce graphical-state (atom nil))
 
 (defn start! [config]
-  (swap! graphical-state assoc :window (init-window (:window config)))
-  (swap! graphical-state assoc :vulkan (init-vulkan config)))
+  (let [window   (create-window (:window config))
+        instance (create-instance config)
+        surface  (create-surface instance window)
+        pdevice  (physical-device instance surface)
+        device   (create-device pdevice surface)]
+    (reset! graphical-state
+            (merge
+             {:window          window
+              :instance        instance
+              :surface         surface
+              :physical-device pdevice}
+             device))))
 
 (defn stop! []
-  (swap! graphical-state update :vulkan teardown-vulkan)
-  (swap! graphical-state update :window teardown-glfw))
-
+  (teardown-vulkan @graphical-state)
+  (teardown-glfw (:window @graphical-state))
+  (reset! graphical-state nil))
 
 (def config
   {:validation-layers #{"VK_LAYER_KHRONOS_validation"}
