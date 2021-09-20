@@ -10,6 +10,7 @@
             VkDebugUtilsMessengerCreateInfoEXT
             VkDebugUtilsMessengerCallbackDataEXT
             KHRSurface
+            KHRSwapchain
             VK11
             VkDebugUtilsMessengerCallbackEXT
             VkDebugUtilsMessengerCallbackEXTI
@@ -19,6 +20,7 @@
             VkDeviceCreateInfo
             VkDevice
             VkInstance
+            VkSurfaceCapabilitiesKHR
             VkQueue
             VkInstanceCreateInfo
             VkPhysicalDevice
@@ -86,6 +88,8 @@
   (let [supported (into #{} (map #(.layerNameString %)) (lists/validation-layers))]
     (every? #(contains? supported %) target)))
 
+;;;;; Instance creation
+
 (defn create-instance [{:keys [validation-layers]}]
   (when (check-validation-layers validation-layers)
     (with-open [stack (MemoryStack/stackPush)]
@@ -110,6 +114,21 @@
 
         (when (= (VK11/vkCreateInstance createInfo nil ptr) VK11/VK_SUCCESS)
           (VkInstance. (.get ptr 0) createInfo))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Device selection
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;; Swapchain config
+
+(defn swapchain-support [device surface]
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [capabilities (VkSurfaceCapabilitiesKHR/mallocStack stack)]
+      (KHRSurface/vkGetPhysicalDeviceSurfaceCapabilitiesKHR
+       device surface capabilities)
+      capabilities)))
+
+;;;;; Queue Selection
 
 (def queue-flags
   (->> api/enums
@@ -161,6 +180,7 @@
   [device surface config]
   (and (swapchain? device config) (not (nil? (queue-family-index device surface)))))
 
+
 (defn physical-device [instance surface config]
   (->> #(VK11/vkEnumeratePhysicalDevices instance %1 %2)
        lists/gcalloc
@@ -194,6 +214,7 @@
           (VK11/vkGetDeviceQueue context qfi 0 &queue)
           {:context context :queue (VkQueue. (.get &queue 0) context)})))))
 
+;;;;; Surface creation
 (defn create-surface [instance window]
   (with-open [stack (MemoryStack/stackPush)]
     (let [&surface (.longs stack VK11/VK_NULL_HANDLE)]

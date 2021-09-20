@@ -1,9 +1,8 @@
 (ns clj-vulkan.api
-  (:require [clojure.xml :as xml]
-            [clojure.string :as str]
-            [clojure.reflect :as r])
-  (:import [java.nio.charset StandardCharsets]
-           [org.lwjgl.system MemoryStack MemoryUtil]))
+  (:require [clojure.string :as string]
+            [clojure.walk :as walk]
+            [clojure.xml :as xml])
+  (:import org.lwjgl.system.MemoryUtil))
 
 (defn invoke [x p]
   (clojure.lang.Reflector/invokeInstanceMethod x p (into-array [])))
@@ -33,7 +32,7 @@
        (filter #(= n (:name (:attrs %))))
        first))
 
-(defn parse [x]
+(defn p* [x]
   (->> x
        vname
        find-type
@@ -49,6 +48,15 @@
                              (lwjgl-read-str v)
                              v)]))
        (into {})))
+
+(defn parse [x]
+  (walk/prewalk
+   (fn [x]
+     (let [t (.getName (type x))]
+       (if (string/starts-with? t "org.lwjgl.vulkan")
+         (p* x)
+         x)))
+   x))
 
 (defn vname->clj [s]
   s)
