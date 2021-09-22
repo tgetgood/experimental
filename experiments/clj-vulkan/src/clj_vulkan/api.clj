@@ -1,5 +1,5 @@
 (ns clj-vulkan.api
-  (:require [clojure.string :as string]
+  (:require [clojure.string :as str]
             [clojure.walk :as walk]
             [clojure.xml :as xml])
   (:import org.lwjgl.system.MemoryUtil))
@@ -16,6 +16,14 @@
 (def api-doc
   (xml/parse (java.io.File. "vk.xml")))
 
+(defn tag
+  "Filters `seq` for elements with :tag `t`"
+  [t seq]
+  (filter #(= t (:tag %)) seq))
+
+(defn tagval [t seq]
+  (->> seq (tag t) first :content first))
+
 (defn vname
   "Returns the Vulkan API name of the class of an object"
   [x]
@@ -30,6 +38,31 @@
        xml-seq
        (filter #(= :type (:tag %)))
        (filter #(= n (:name (:attrs %))))
+       first))
+
+(defn parse-command [{:keys [attrs content]}]
+ ;; TODO: This is a clear use case for spec
+  (let [head   (:content (first (tag :proto content)))
+        params (tag :param content)]
+    {:name (tagval :name head)
+     :return (merge attrs
+                    {:type (tagval :type head)})
+     :params (map (fn [{:keys [content]}]
+                    (merge
+                     (when (string? (first content))
+                       {:attribute (keyword (str/trim (first content)))})
+                     (when (= "* " (last (butlast content)))
+                       {:pointer true})
+                     {:name (tagval :name content)
+                      :type (tagval :type content)}))
+                  params)}))
+
+(defn find-fn [n]
+  (->> api-doc
+       xml-seq
+       (filter #(= :command (:tag %)))
+       (map parse-command)
+       (filter #(= n (:name %)))
        first))
 
 (defn p* [x]

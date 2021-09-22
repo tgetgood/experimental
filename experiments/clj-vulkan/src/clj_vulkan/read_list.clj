@@ -1,13 +1,8 @@
 (ns clj-vulkan.read-list
-  (:require [clj-vulkan.c-utils :as c])
+  (:require [clj-vulkan.api :as api])
   (:import org.lwjgl.PointerBuffer
            org.lwjgl.system.MemoryStack
-           [org.lwjgl.vulkan
-            VK11
-            VkLayerProperties
-            VkQueueFamilyProperties
-            VkExtensionProperties
-            VkPhysicalDevice]))
+           [org.lwjgl.vulkan VK11 VkExtensionProperties VkLayerProperties VkPhysicalDevice VkQueueFamilyProperties]))
 
 (defn reducible-pbuffer [this]
   (reify clojure.lang.IReduce
@@ -73,3 +68,11 @@
             &f (VkExtensionProperties/mallocStack c stack)]
         (VK11/vkEnumerateDeviceExtensionProperties device "" &c &f)
         (into [] &f)))))
+
+(defmacro wrap [n]
+  (let [spec (api/find-fn n)]
+    `(fn [^{:tag ~(symbol (:type (first (:params spec))))} x#]
+       (with-open [stack# (MemoryStack/stackPush)]
+         (let [c# (.mallocInt stack# 1)]
+           (~(symbol "VK11" n) x# c# nil)
+           )))))
