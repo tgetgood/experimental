@@ -1,2 +1,23 @@
 * Vulkan API spec
   https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/main/xml/vk.xml
+
+  I'm writing this because there's only really one Vulkan turial online. It's a
+  fantastic tutorial, which is part of the problem: no one has needed to write
+  another. Of course there are flavours of it in many different languages, but
+  they all share the structure of the original.
+
+  The take away most people get from this is "Vulkan is a C library, so whatever
+  language you're working in, you write C within it to talk to Vulkan".
+
+  But Vulkan is not a C library; it's a binary protocol for communicating with
+  graphics hardware with a canonical implementation in C.
+
+  Admittedly a lot of C's ideology bleeds through into Vulkan (calling
+  conventions, data layouts, naming conventions), but these are implementation
+  details which can be wrapped over easily.
+
+  And so we land here: an attempt to wrap LWJGL's C-in-Java Vulkan API into a
+  natural feeling, dynamic, garbage collected, data driven clojure library.
+
+  Performance won't be a consideration initially, so if you're setting up a
+  render farm, go somewhere else.
