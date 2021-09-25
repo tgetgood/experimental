@@ -1,6 +1,6 @@
 (ns clj-vulkan.core
   (:require [clj-vulkan.read-list :as lists]
-            [clj-vulkan.api :as api]
+            [clj-vulkan.api :as vk]
             [clj-vulkan.c-utils :as c])
   (:import [org.lwjgl.glfw GLFW GLFWVulkan]
            [org.lwjgl.system MemoryStack MemoryUtil Callback]
@@ -85,7 +85,9 @@
         (.pfnUserCallback debug-logger)))))
 
 (defn check-validation-layers [target]
-  (let [supported (into #{} (map #(.layerNameString %)) (lists/validation-layers))]
+  (let [supported (into #{}
+                        (map :layerName)
+                        (vk/call vkEnumerateInstanceLayerProperties))]
     (every? #(contains? supported %) target)))
 
 ;;;;; Instance creation
@@ -131,7 +133,7 @@
 ;;;;; Queue Selection
 
 (def queue-flags
-  (->> api/enums
+  (->> vk/enums
        (filter #(= "VkQueueFlagBits" (:name %)))
        first))
 
@@ -154,17 +156,14 @@
       (= VK11/VK_TRUE (.get p? 0)))))
 
 (defn swapchain? [device {:keys [extensions]}]
-  (let [supported (->> device
-                       lists/device-extensions
-                       (map api/parse)
+  (let [supported (->> (vk/call vkEnumerateDeviceExtensionProperties device "")
                        (map :extensionName)
                        (into #{}))]
     (every? #(contains? supported %) extensions)))
 
 (defn queue-family-index [device surface]
   (->> device
-       lists/queue-families
-       (map api/parse)
+       (vk/call vkGetPhysicalDeviceQueueFamilyProperties)
        (zipmap (range))
        (filter (fn [[k v]] (and (presentation-support? k device surface)
                                 (suitable-queue-family? v))))
