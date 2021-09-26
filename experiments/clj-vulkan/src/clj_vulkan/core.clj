@@ -1,7 +1,8 @@
 (ns clj-vulkan.core
   (:require [clj-vulkan.read-list :as lists]
             [clj-vulkan.api :as vk]
-            [clj-vulkan.c-utils :as c])
+            [clj-vulkan.c-utils :as c]
+            [taoensso.timbre :as log])
   (:import [org.lwjgl.glfw GLFW GLFWVulkan]
            [org.lwjgl.system MemoryStack MemoryUtil Callback]
            [org.lwjgl PointerBuffer]
@@ -31,10 +32,12 @@
 ;;;;;
 
 (defn create-window [{:keys [width height ^String title]}]
-  (when (GLFW/glfwInit)
-    (GLFW/glfwWindowHint GLFW/GLFW_CLIENT_API GLFW/GLFW_NO_API)
-    (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_FALSE)
-    (GLFW/glfwCreateWindow (int width) (int height) title c/null c/null)))
+  (if (GLFW/glfwInit)
+    (do
+      (GLFW/glfwWindowHint GLFW/GLFW_CLIENT_API GLFW/GLFW_NO_API)
+      (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_FALSE)
+      (GLFW/glfwCreateWindow (int width) (int height) title c/null c/null))
+    (log/error "Failed to initialise GLFW.")))
 
 (defn teardown-glfw [window]
   (GLFW/glfwDestroyWindow window)
@@ -57,11 +60,17 @@
 ;; Vulkan init logging
 ;;;;;
 
+(def log-level-map
+  {EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT :debug
+   EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT   :error
+   EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT :warn
+   EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT    :info})
+
 (def debug-logger
   (reify VkDebugUtilsMessengerCallbackEXTI
-    (invoke [_ _ _ cb-data _]
+    (invoke [_ level _ cb-data _]
       (let [data (VkDebugUtilsMessengerCallbackDataEXT/create cb-data)]
-        (println (.pMessageString data))
+        (log/log (get log-level-map level) (.pMessageString data))
         VK11/VK_FALSE))))
 
 (defn create-debug-messenger []
@@ -71,16 +80,12 @@
         (.sType
          EXTDebugUtils/VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT)
 
-        (.messageSeverity
-         (bit-or EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
-                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
-                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT))
+        (.messageSeverity (apply bit-or (keys log-level-map)))
 
         (.messageType
          (bit-or EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                  EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-                 (EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)))
+                 EXTDebugUtils/VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 
         (.pfnUserCallback debug-logger)))))
 
@@ -93,7 +98,8 @@
 ;;;;; Instance creation
 
 (defn create-instance [{:keys [validation-layers]}]
-  (when (check-validation-layers validation-layers)
+  (if-not (check-validation-layers validation-layers)
+    (log/error "Required validation layers not supported by local Vulkan")
     (with-open [stack (MemoryStack/stackPush)]
       (let [appInfo    (VkApplicationInfo/callocStack stack)
             createInfo (VkInstanceCreateInfo/callocStack stack)
@@ -114,8 +120,10 @@
           (.ppEnabledLayerNames (c/pbuffer (map c/str validation-layers)))
           (.pNext (.address (create-debug-messenger))))
 
-        (when (= (VK11/vkCreateInstance createInfo nil ptr) VK11/VK_SUCCESS)
-          (VkInstance. (.get ptr 0) createInfo))))))
+        (let [o (VK11/vkCreateInstance createInfo nil ptr)]
+          (if (= o VK11/VK_SUCCESS)
+            (VkInstance. (.get ptr 0) createInfo)
+            (log/error "Failed to instantiate Vulkan: " (vk/lookup-error o))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Device selection
@@ -128,7 +136,11 @@
     (let [capabilities (VkSurfaceCapabilitiesKHR/mallocStack stack)]
       (KHRSurface/vkGetPhysicalDeviceSurfaceCapabilitiesKHR
        device surface capabilities)
-      capabilities)))
+      {:capabilities  (vk/parse capabilities)
+       :formats       (vk/invoke vkGetPhysicalDeviceSurfaceFormatsKHR
+                                 device surface)
+       :present-modes (vk/invoke vkGetPhysicalDeviceSurfacePresentModesKHR
+                                 device surface)})))
 
 ;;;;; Queue Selection
 
@@ -177,7 +189,8 @@
   TOOO: Confirm that this *is* a reasonable assumption in most personal
   computing setups."
   [device surface config]
-  (and (swapchain? device config) (not (nil? (queue-family-index device surface)))))
+  (and (swapchain? device config)
+       (not (nil? (queue-family-index device surface)))))
 
 
 (defn physical-device [instance surface config]
@@ -207,19 +220,22 @@
         (.ppEnabledExtensionNames (c/pbuffer (map c/str extensions)))
         (.pEnabledFeatures df))
 
-      (when (= (VK11/vkCreateDevice device dc nil &context) VK11/VK_SUCCESS)
-        (let [context (VkDevice. (.get &context 0) device dc)
-              &queue  (.pointers stack VK11/VK_NULL_HANDLE)]
-          (VK11/vkGetDeviceQueue context qfi 0 &queue)
-          {:context context :queue (VkQueue. (.get &queue 0) context)})))))
+      (let [o (VK11/vkCreateDevice device dc nil &context)]
+        (if (= o VK11/VK_SUCCESS)
+          (let [context (VkDevice. (.get &context 0) device dc)
+                &queue  (.pointers stack VK11/VK_NULL_HANDLE)]
+            (VK11/vkGetDeviceQueue context qfi 0 &queue)
+            {:context context :queue (VkQueue. (.get &queue 0) context)})
+          (log/error "Failed to create logical device: " (vk/lookup-error o)))))))
 
 ;;;;; Surface creation
 (defn create-surface [instance window]
   (with-open [stack (MemoryStack/stackPush)]
     (let [&surface (.longs stack VK11/VK_NULL_HANDLE)]
-      (let [o  (GLFWVulkan/glfwCreateWindowSurface instance window nil &surface)]
-        (when (= VK11/VK_SUCCESS o)
-          (.get &surface 0))))))
+      (let [o (GLFWVulkan/glfwCreateWindowSurface instance window nil &surface)]
+        (if (= VK11/VK_SUCCESS o)
+          (.get &surface 0)
+          (log/error "Failed to create surface:" (vk/lookup-error o)))))))
 
 (defonce graphical-state (atom nil))
 
