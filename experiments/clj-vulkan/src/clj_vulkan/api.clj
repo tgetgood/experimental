@@ -1,11 +1,12 @@
 (ns clj-vulkan.api
-  (:require [clojure.string :as str]
+  (:require [clojure.reflect :as r]
+            [clojure.string :as str]
             [clojure.walk :as walk]
             [clojure.xml :as xml])
   (:import org.lwjgl.system.MemoryUtil
            org.lwjgl.vulkan.VK11))
 
-(defn clj-invoke [x p]
+(defn invoke [x p]
   (clojure.lang.Reflector/invokeInstanceMethod x p (into-array [])))
 
 (defn lwjgl-read-str [b]
@@ -77,7 +78,7 @@
        (map first)
        (map :content)
        (map first)
-       (map (fn [p] [(keyword p) (clj-invoke x p)]))
+       (map (fn [p] [(keyword p) (invoke x p)]))
        (map (fn [[k v]] [k (if (= java.nio.DirectByteBuffer (type v))
                              (lwjgl-read-str v)
                              v)]))
@@ -125,10 +126,6 @@
        (map parse-enum)
        (into [])))
 
-;; TODO: The following works for structures, but not for pointers. Abstract the
-;; allocator (I really hope I don't have to write a new one) so that it can
-;; handle both cases.
-
 (defn type-o-matic
   "Given a vulkan parameter map, return a sensible JVM type for that parameter."
   [{:keys [pointer? type]}]
@@ -140,6 +137,10 @@
 
 (defn typed-arg [{:keys [name] :as param}]
   (with-meta (symbol name) {:tag (type-o-matic param)}))
+
+;; TODO: The following works for structures, but not for pointers. Abstract the
+;; allocator (I really hope I don't have to write a new one) so that it can
+;; handle both cases.
 
 (defmacro wrap-enumerate [vk-version n]
   (let [fname    (name n)
@@ -157,6 +158,11 @@
 
 ;; Should eventually allow invocation of any vk 1.1 fn in an idiomatic
 ;; way. Currently only manages the "enumerate struct" family of fns.
+
+;; TODO: Make sure the inner `wrap-enumerate` is expanded during AOT
+;; compilation. It's not intended to be efficient, but that won't matter if it
+;; only happens at compile time.
+;; TODO: Also memoise the expansion.
 (defmacro call [n & args]
   `((wrap-enumerate org.lwjgl.vulkan.VK11 ~n) ~@args))
 

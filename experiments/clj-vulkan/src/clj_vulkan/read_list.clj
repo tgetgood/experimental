@@ -1,8 +1,6 @@
 (ns clj-vulkan.read-list
-  (:require [clj-vulkan.api :as api])
   (:import org.lwjgl.PointerBuffer
-           org.lwjgl.system.MemoryStack
-           [org.lwjgl.vulkan VK11 VkExtensionProperties VkLayerProperties VkPhysicalDevice VkQueueFamilyProperties]))
+           org.lwjgl.system.MemoryStack))
 
 (defn reducible-pbuffer [this]
   (reify clojure.lang.IReduce
