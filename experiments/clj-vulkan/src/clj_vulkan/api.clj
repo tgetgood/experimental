@@ -4,7 +4,25 @@
             [clojure.walk :as walk]
             [clojure.xml :as xml])
   (:import org.lwjgl.system.MemoryUtil
-           org.lwjgl.vulkan.VK11))
+           [org.lwjgl.vulkan KHRSurface KHRSwapchain VK10 VK11]))
+
+(def vulkan-classes
+  [org.lwjgl.vulkan.VK11
+   org.lwjgl.vulkan.VK10
+   org.lwjgl.vulkan.KHRSurface
+   org.lwjgl.vulkan.KHRSwapchain])
+
+(def long-types
+  "List of types represented within lwjgl as longs (because they're in fact
+  pointers)."
+  '#{org.lwjgl.vulkan.VkSurfaceKHR
+     org.lwjgl.vulkan.VkPresentModeKHR})
+
+(def reflector
+  (into {}
+        (map (fn [c]
+               [c (into #{} (map :name (:members (r/reflect c))))])
+             vulkan-classes)))
 
 (defn invoke [x p]
   (clojure.lang.Reflector/invokeInstanceMethod x p (into-array [])))
@@ -17,6 +35,13 @@
 
 (def api-doc
   (xml/parse (java.io.File. "vk.xml")))
+
+(defn lookup-error
+  "Given a numeric Vulkan return code, returns the name of the error (or
+  VK_SUCCESS)."
+  [n]
+  ;; TODO: Implement
+  n)
 
 (defn tag
   "Filters `seq` for elements with :tag `t`"
@@ -126,14 +151,23 @@
        (map parse-enum)
        (into [])))
 
+(defn qualified-lwjgl-symbol [t]
+  (let [c (first (keys (filter #(contains? (val %) (symbol t)) reflector)))]
+    (symbol (.getName c) t)))
+
+(defn lwjgl-class-fudge [type]
+  (let [c (symbol (str "org.lwjgl.vulkan." type))]
+    (if (contains? long-types c)
+      'java.lang.Long
+      c)))
+
 (defn type-o-matic
   "Given a vulkan parameter map, return a sensible JVM type for that parameter."
   [{:keys [pointer? type]}]
   (cond
-    (and pointer? (= "char" type))     'String
+    (and pointer? (= "char" type))     'java.lang.String
     (and pointer? (= "uint32_t" type)) 'java.nio.IntBuffer
-
-    :else (symbol (str "org.lwjgl.vulkan." type))))
+    :else                              (lwjgl-class-fudge type)))
 
 (defn typed-arg [{:keys [name] :as param}]
   (with-meta (symbol name) {:tag (type-o-matic param)}))
@@ -142,9 +176,9 @@
 ;; allocator (I really hope I don't have to write a new one) so that it can
 ;; handle both cases.
 
-(defmacro wrap-enumerate [vk-version n]
+(defmacro wrap-enumerate [n]
   (let [fname    (name n)
-        fqfn     (symbol (name vk-version) fname)
+        fqfn     (qualified-lwjgl-symbol fname)
         spec     (find-fn fname)
         args     (->> spec :params (drop-last 2) (map typed-arg))
         ret-type (->> spec :params last type-o-matic)]
@@ -152,7 +186,8 @@
        (with-open [stack# (org.lwjgl.system.MemoryStack/stackPush)]
          (let [^java.nio.IntBuffer c# (.mallocInt stack# 1)]
            (~fqfn ~@args c# nil)
-           (let [xs# (~(symbol (name ret-type) "mallocStack") (.get c# 0) stack#)]
+           (let [xs# (~(symbol (name ret-type) "mallocStack")
+                      (.get c# 0) stack#)]
              (~fqfn ~@args c# xs#)
              (into [] (map parse) xs#)))))))
 
@@ -164,7 +199,7 @@
 ;; only happens at compile time.
 ;; TODO: Also memoise the expansion.
 (defmacro call [n & args]
-  `((wrap-enumerate org.lwjgl.vulkan.VK11 ~n) ~@args))
+  `((wrap-enumerate ~n) ~@args))
 
 (defmacro doc [n]
   `(find-fn ~(name n)))

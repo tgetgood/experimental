@@ -11,6 +11,7 @@
             VkDebugUtilsMessengerCreateInfoEXT
             VkDebugUtilsMessengerCallbackDataEXT
             KHRSurface
+
             KHRSwapchain
             VK11
             VkDebugUtilsMessengerCallbackEXT
@@ -137,10 +138,10 @@
       (KHRSurface/vkGetPhysicalDeviceSurfaceCapabilitiesKHR
        device surface capabilities)
       {:capabilities  (vk/parse capabilities)
-       :formats       (vk/invoke vkGetPhysicalDeviceSurfaceFormatsKHR
-                                 device surface)
-       :present-modes (vk/invoke vkGetPhysicalDeviceSurfacePresentModesKHR
-                                 device surface)})))
+       :formats       (vk/call vkGetPhysicalDeviceSurfaceFormatsKHR
+                               device surface)
+       :present-modes (vk/call vkGetPhysicalDeviceSurfacePresentModesKHR
+                               device surface)})))
 
 ;;;;; Queue Selection
 
