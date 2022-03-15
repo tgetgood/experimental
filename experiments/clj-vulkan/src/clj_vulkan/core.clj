@@ -93,6 +93,7 @@
 (defn check-validation-layers [target]
   (let [supported (into #{}
                         (map :layerName)
+                        ;; HERE
                         (vk/call vkEnumerateInstanceLayerProperties))]
     (every? #(contains? supported %) target)))
 
