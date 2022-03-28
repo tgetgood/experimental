@@ -1,0 +1,57 @@
+#+TITLE: Native Code Generator
+
+This one's a doozy. What if I had a program to generate llvm IR at a high level
+using clojure? Bootstrapping dream? Cesspit of metarectangularity? Only one way
+to find out.
+
+* IR interface
+  I don't want to be writing IR directly, but rather generating it.
+
+  Thus the first thing written should not be the final product, but a
+  bootstrapping program which can generate bitcode from a higher level
+  spec. Then use that to write the transduction system.
+* A minimal lisp
+  What's the minimal set of constructs we need to have a lisp?
+
+  Going back to basics, we need lambda, conditional branch, values, names
+  (name values, determine if a value is a name, dereference a name to get a
+  value), and datastructures (cons, car, cdr, traditionally, but we'll go with
+  EDN).
+
+  Plus, to be useful, we'll build in arithmetic and not reimplement it from the
+  lambda calculus.
+
+  Builtin list
+
+  - fn
+  - cond
+    - comparisons
+  - values
+    - strings (vectors of chars? ropes? just literal strings for the moment)
+    - integers (will build all arithmetic from ints ourselves)
+    - true/false
+  - edn (no cons cells or lists, sets will come in a later iteration).
+    - []
+    - {}
+    - conj
+    - get
+  - names
+    This is a tricky part. Do we need lexical environments? That sounds like a
+    dumb question, but do we?
+* General computation from primitive recursion
+  You can build general recursion (and super-Church computation) from primitive
+  recursive functions using self referrential transduction networks.
+
+  There are drawbacks: halting becomes a non-issue because these networks don't
+  halt (they can become inactive, but proving they will stay so is in general
+  beyond my current means).
+
+  The input streams to the transduction network can be from sensors and physical
+  transducers. Input streams with real entropy allow a transduction network to
+  output non-computable numbers (a là Wegner's identity machines), that are not
+  just noise. Whether useful work can be accomplished thereby is still to be
+  establised.
+* Thoughts
+  Is it possible to write a branchless filter transducer?
+
+  Do we want to start with transducers from the get go here?
