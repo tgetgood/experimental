@@ -74,6 +74,7 @@
     {:name (tagval :name head)
      :return (merge attrs
                     {:type (tagval :type head)})
+
      :params (map (fn [{:keys [content]}]
                     (merge
                      (when (string? (first content))
