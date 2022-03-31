@@ -1,57 +1,171 @@
 #+TITLE: Native Code Generator
 
-This one's a doozy. What if I had a program to generate llvm IR at a high level
-using clojure? Bootstrapping dream? Cesspit of metarectangularity? Only one way
-to find out.
+The ultimate goal of this project is to develop a novel high level language that
+integrates cpu and gpu programming. That language has been described elsewhere
+(but is by no means fully thought out).
 
-* IR interface
-  I don't want to be writing IR directly, but rather generating it.
+This document will discuss a tower of languages to build the base of it.
 
-  Thus the first thing written should not be the final product, but a
-  bootstrapping program which can generate bitcode from a higher level
-  spec. Then use that to write the transduction system.
-* A minimal lisp
-  What's the minimal set of constructs we need to have a lisp?
+* Desiderata and Priorities
+** A REPL
+   The entire goal of this is to create a fast feedback experience, so it is
+   critical that we can JIT compile and link the code at human realtime speeds.
 
-  Going back to basics, we need lambda, conditional branch, values, names
-  (name values, determine if a value is a name, dereference a name to get a
-  value), and datastructures (cons, car, cdr, traditionally, but we'll go with
-  EDN).
+   Specifically this means that we need <10ms compile times — an arbitrary but
+   sufficient goal — so that you don't notice the fact that everything you type
+   is being compiled and linked into the session.
 
-  Plus, to be useful, we'll build in arithmetic and not reimplement it from the
-  lambda calculus.
+   In particular, this prohibits global compiler optimisations, or anything else
+   that inhibits incremental compilation of (very) small units.
+** Bootstrapping
+   That said it's entirely possible that the lasagna described below is just too
+   slow to be practical, but if we can use the slow lasagna to compile itself
+   into a fast enough executable, then we win.
 
-  Builtin list
+   Sort of.
 
-  - fn
-  - cond
-    - comparisons
-  - values
-    - strings (vectors of chars? ropes? just literal strings for the moment)
-    - integers (will build all arithmetic from ints ourselves)
-    - true/false
-  - edn (no cons cells or lists, sets will come in a later iteration).
-    - []
-    - {}
-    - conj
-    - get
-  - names
-    This is a tricky part. Do we need lexical environments? That sounds like a
-    dumb question, but do we?
-* General computation from primitive recursion
-  You can build general recursion (and super-Church computation) from primitive
-  recursive functions using self referrential transduction networks.
+   Of course the goal is to bootstrap, but the goal will never be to reimplement
+   clojure, so we would lose the full power of clojure and the tooling that
+   comes with it.
 
-  There are drawbacks: halting becomes a non-issue because these networks don't
-  halt (they can become inactive, but proving they will stay so is in general
-  beyond my current means).
+   That's inevitable as you build a new language which is not hosted nor
+   embedded in another. It's a difficult loss though, and postponing it as much
+   as possible is desirable.
 
-  The input streams to the transduction network can be from sensors and physical
-  transducers. Input streams with real entropy allow a transduction network to
-  output non-computable numbers (a là Wegner's identity machines), that are not
-  just noise. Whether useful work can be accomplished thereby is still to be
-  establised.
-* Thoughts
-  Is it possible to write a branchless filter transducer?
+   Would it be feasible to bootstrap the runtime, but keep the clojure front
+   end? By front end I mean nrepl, the reader, cider, etc.. That's an
+   interesting idea.
+* Levels of Abstraction
+  I've chosen to implement this directly on the llvm after evaluating many
+  options. The ultimate reason is simplicity. I need to interact with hardware,
+  so choices are already constrained (C, assembly, Rust, etc.). So why llvm? The
+  short version is that assembly isn't portable, rust is too tightly coupled to
+  its stack based notion of lifetimes (plus the type system is mostly a
+  hinderance in this kind of exploratory work), and C, well I don't want to
+  write it in C.
 
-  Do we want to start with transducers from the get go here?
+  But I also don't want to be writing IR. I want to step away from the IR type
+  system immediately, minimal though it is. I want to talk about message
+  passing, and not about jumping to labels, etc.. But these things must be
+  built.
+
+  A lot of this is inspired by the intermediate representations developed for
+  falloleen.
+** IR as Data
+   Step 1 is just to capture IR instructions as clojure data. There's no need to
+   model all instructions initially, but only those needed for subsequent layers.
+
+   [:add :i32 127 438]
+
+   perhaps. That might well prove simplistic, but there's a good chance it won't
+   since instructions are just lines of text — multi line instructions are for
+   presentation, it would appear, but that needs to be verified.
+
+   Globals (starting with =@=) will need to be munged since the @ character
+   cannot be present in keywords or symbols. Maybe just use strings?
+
+   (with-meta [:add :i32 127 438]
+     {:properties [nuw nsw]
+      :result-register %1})
+
+   "nuw" should always be set from higher level perspectives, but remember that
+   this is supposed to model IR.
+
+   Should I be using spec for this? It seems like a clear use case in some
+   ways.
+
+   Blocks are just lists of instructions:
+
+   (with-meta [inst1 inst2 ...]
+     {:label G__0027})
+
+   Is metadata the right way to think about return registers, block labels,
+   instruction property switches, etc.? It's convenient because it leaves the
+   instructions themselves simple and quickly readable, but it's inconvenient
+   because it hides this info unless you know to look for it.
+
+   An alternate representation would just put the code into the metamap:
+
+   {:return %4
+    :inst [:udiv :i8 14 %3]}
+
+   Where a function would be
+
+   {:args []
+    :properties ...
+    :name ...
+    :blocks [{:label, :instructions}] }
+
+  The =call= instruction will be a bit special. Not very.
+
+  This representation is intended to be machine generated and machine consumed,
+  so being overly explicit is best.
+
+  I'll need to play with some simple programs to see if this makes any sense.
+** A minimal lisp
+   What's the minimal set of constructs we need to have a lisp?
+
+   Going back to basics, we need lambda, conditional branch, values, names
+   (name values, determine if a value is a name, dereference a name to get a
+   value), and datastructures (cons, car, cdr, traditionally, but we'll go with
+   EDN).
+
+   Plus, to be useful, we'll build in arithmetic and not reimplement it from the
+   lambda calculus.
+
+   Builtin list
+
+   - fn
+   - cond
+     - comparisons
+   - values
+     - strings (vectors of chars? ropes? just literal strings for the moment)
+     - integers (will build all arithmetic from ints ourselves)
+     - true/false
+   - edn (no cons cells or lists, sets will come in a later iteration).
+     - []
+     - {}
+     - conj
+     - get
+   - names
+     Taking a hint from llvm's SSA, namespaced names can be assigned
+     immutably. This will make some reply things difficult, but we'll figure
+     that out.
+
+     We still need assignment and dereference operations.
+   - math
+     - arithmetic
+     - comparison (equality test)
+   - string manipulation?
+     We need some way to manipulate strings. Being able to treat them as a data
+     structure that can be manipulated by collection abstractions would suffice.
+** Tranductive programming
+   You can build general recursion (and super-Church computation) from primitive
+   recursive functions using self referrential transduction networks.
+
+   There are drawbacks: halting becomes a non-issue because these networks don't
+   halt (they can become inactive, but proving they will stay so is in general
+   beyond my current means).
+
+   The input streams to the transduction network can be from sensors and physical
+   transducers. Input streams with real entropy allow a transduction network to
+   output non-computable numbers (a là Wegner's identity machines), that are not
+   just noise. Whether useful work can be accomplished thereby is still to be
+   establised.
+* Homeless features
+** global reference by value (infinite hash set)
+** binary destructuring
+   This will be needed for interacting effectively with gpus, maybe for simd
+   cpu opts as well, but to a lesser extent.
+** symbolic arithmetic
+**
+* Questions
+  At what level of abstraction do we introduce name-by-value to the language
+  tower?
+
+  Where do I have to start en
+  Where do we insert the runtime optimisation heuristics?
+
+  Is it possible to write a branchless filter transducer? Not that this is all
+  that important, but it probably is a pretty simple thing to do that will bring
+  some benefits being at the very bottom.
