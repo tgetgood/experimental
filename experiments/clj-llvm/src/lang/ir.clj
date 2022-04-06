@@ -15,7 +15,8 @@
     (vector? x)          :prog
     (contains? x :=)     (first (:= x))
     (contains? x :block) :block
-    (contains? x :name)  :fn))
+    (contains? x :name)  (cond (contains? :blocks) :fn
+                               :declare)))
 
 (defn lref [x]
   (cond
@@ -169,4 +170,8 @@
 
 (def prog
   [fib
+   {:global? true
+    :name :llvm.stacksave
+    :rettype :void
+    :args []}
    main])
