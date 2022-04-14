@@ -12,11 +12,9 @@
 
 (defn inst-type [x]
   (cond
-    (vector? x)          :prog
-    (contains? x :=)     (first (:= x))
-    (contains? x :block) :block
-    (true? (:global? x)) (cond (contains? x :blocks) :fn
-                               :else                 :declare)))
+    (vector? x)                         ::prog
+    (and (map? x) (contains? x :block)) ::block
+    (map? x)                            ::inst))
 
 (defn lref [x]
   (cond
@@ -27,51 +25,55 @@
 (defn gref [s]
   (str "@" (name s)))
 
+(defmulti gen-ll #'inst-type)
+(defmulti gen-inst :inst)
+
+(defmethod gen-ll ::prog
+  [x]
+  (map gen-ll x))
+
+(defmethod gen-ll ::block
+  [{:keys [label block]}]
+  [(str (if label (name label) (gen-label)) ":")
+   (map gen-ll block)])
+
+(defmethod gen-ll ::inst
+  [{:keys [ret] :as x}]
+  (concat (when ret [(lref ret) "="])
+          (gen-inst x)))
+
 (defn gen-arg [xs]
   (apply str (interpose " " (map lref xs))))
 
-(defmulti gen-ll #'inst-type)
-
-(defmethod gen-ll :prog
-  [x]
-  (apply str (interpose "\n\n" (map gen-ll x))))
-
 (defn fn-sig
-  [{:keys [global? rettype args attrs ret-attrs unnamed] :as x}]
-  (str
-   (when (seq ret-attrs)
-     (apply str (interleave (map lref ret-attrs) (repeat " "))))
-   (lref rettype) " "
-   (when global? "@") (name (:name x))
-   "("
-   (apply str (interpose ", " (map gen-arg args)))
-   ")"
-   (when unnamed
-     (str " " (lref unnamed)))
-   (when attrs
-     (str " " attrs))))
+  [{:keys [inst fn-type type args attrs params unnamed blocks] :as x}]
+  (apply concat
+         [(name inst)]
+         (when (seq params)
+           (map lref params))
+         [(lref type)
+          (when fn-type ["fn-type"])
+          (gref (:name x))
+          "("]
+         (interpose "," (map gen-arg args))
+         [")"
+          (when unnamed
+            (lref unnamed))
+          (when attrs
+            attrs)
+          (when blocks "{")]
+         (when blocks
+           [])))
 
-(defmethod gen-ll :declare
+(defmethod gen-inst :declare
   [x]
-  (str "declare" " " (fn-sig x)))
+  (fn-sig x))
 
-(defmethod gen-ll :fn
-  [{:keys [global? rettype args blocks attrs] :as f}]
-  (str "define "
-       (fn-sig f)
-       " " "{"
-       (apply str (map gen-ll blocks))
-       "}"))
+(defmethod gen-inst :define
+  [f]
+  (fn-sig f))
 
-(defmethod gen-ll :block
-  [{:keys [label block]}]
-  (str
-   "\n"
-   (if label (name label) (gen-label)) ":"
-   (apply str (interleave (repeat "\n  ") (map gen-ll block)))
-   "\n"))
-
-(defmethod gen-ll :switch
+(defmethod gen-inst :switch
   [x]
   (let [[_ t v _ default & dests] (:= x)]
     (str "switch" " " (name t) " " (lref v) ", " "label" " " (lref default)
@@ -83,22 +85,21 @@
                                       dests)))
           "\n" "  " "]")))
 
-(defmethod gen-ll :call
-  [{:keys [ret] :as x}]
-  (let [[_ t f args & rest] (:= x)]
-    (str
-     (if ret (lref ret) (gen-local)) " = "
-     "call" " " (name t) " " (gref f) "("
-     (apply str (interpose ", " (map (fn [[t v]] (str (name t) " " (lref v)))
-                                    (partition 2 args))))
-     ")")))
+(defmethod gen-inst :call
+  [{:keys [ret fn ]}]
+  #_(str
+   (if ret (lref ret) (gen-local)) " = "
+   "call" " " (name t) " " (gref f) "("
+   (apply str (interpose ", " (map (fn [[t v]] (str (name t) " " (lref v)))
+                                   (partition 2 args))))
+   ")"))
 
-(defmethod gen-ll :ret
+(defmethod gen-inst :ret
   [x]
   (let [[_ t v] (:= x)]
     (str "ret" " " (name t) " " (lref v))))
 
-(defmethod gen-ll :add
+(defmethod gen-inst :add
   [{:keys [ret] :as x}]
   (let [[_ t v1 v2] (:= x)]
     (str
@@ -106,7 +107,7 @@
      " = "
      "add nuw nsw" " " (name t) " " (lref v1) ", " (lref v2))))
 
-(defmethod gen-ll :sub
+(defmethod gen-inst :sub
   [{:keys [ret] :as x}]
   (let [[_ t v1 v2] (:= x)]
     (str
@@ -114,12 +115,12 @@
      " = "
      "sub nuw nsw" " " (name t) " " (lref v1) ", " (lref v2))))
 
-(defmethod gen-ll :br
+(defmethod gen-inst :br
   [x]
   (let [[_ _ label] (:= x)]
     (str "br label " (lref label))))
 
-(defmethod gen-ll :phi
+(defmethod gen-inst :phi
   [{:keys [ret] :as x}]
   (let [[_ t & comefroms] (:= x)]
     (str
@@ -130,7 +131,7 @@
                                        (str "[ " (lref v) ", " (lref from) "]"))
                                      comefroms))))))
 
-(defmethod gen-ll :trunc
+(defmethod gen-inst :trunc
   [{:keys [ret] :as x}]
   (let [[_ t1 v _ t2] (:= x)]
     (str
@@ -138,10 +139,10 @@
      " = "
      "trunc" " " (name t1) " " (lref v) " to " (name t2))))
 
-#_(defmethod gen-ll :default
+(defmethod gen-inst :default
   [x]
-  (println (inst-type x))
-  (throw (Exception. "unknown instruction")))
+  (str "[ STUB: " (inst-type x) "]\n")
+)
 
 (defn compile [p]
   (str (apply str (interpose "\n"  preamble))
@@ -152,11 +153,11 @@
   {:global?    true
    :name       :fib
    :attrs      "#0"
-   :ret-attrs  [:dso_local]
+   :params  [:dso_local]
    :addr-space []
    :unnamed    :local_unnamed_addr
    :meta       {}
-   :rettype    :i64
+   :type    :i64
    :args       [[:i32 'i]]
    :blocks     [{:label 'entry
                  :block [{:=
@@ -186,7 +187,7 @@
   {:global? true
    :name    :readInput
    :attrs   "#0"
-   :rettype :i32
+   :type :i32
    :args    []
    :blocks  [{:label 'entry
               :block [{:ret 'A_1
@@ -209,59 +210,108 @@
               :block []}]})
 
 (def main
-  {:global?    true
+  {:inst       :define
    :name       :main
    :attrs      "#0"
-   :rettype    :i64
-   :ret-attrs  [:dso_local]
+   :type       :i64
+   :params     [:dso_local]
    :addr-space []
    :unnamed    :local_unnamed_addr
    :args       []
-   :blocks     [{:block [{:ret 'T_1
-                          :=   [:call :i32 :readInput []]}
-                         {:ret 'T_2
-                          :=   [:call :i64 :fib [[:i32 'T_1]]]}
-                         {:ret 'A_1
-                          :=   [:alloca [5 :x :i8] :i8 1 :align 1]}
-                         {:= [:store [5 :x :i8]
-                              [:i8 37 :i8 108 :i8 100 :i8 10 :i8 0]
-                              [5 :x :i8 :*] 'A_1 :align 1]}
-                         {:ret 'A_2
-                          :=   [:bitcast [5 x :i8 :*] 'A_1 :to :i8*]}
-                         {:= [:call :i32 [:i8*, :...] :printf [[:i8* :nonnull "dereferenceable(5)" 'A_2] [:i64 'T_2]]]}
-                         {:= [:ret :i64 0]}]}]})
+   :blocks     [{:block [{:inst :call
+                          :ret  'T_1
+                          :type :i32
+                          :fn   :readInput
+                          :args []}
+                         {:inst :call
+                          :ret  'T_2
+                          :type :i64
+                          :fn   :fib
+                          :args [{:type :i32
+                                  :arg  'T_1}]}
+
+                         {:ret   'A_1
+                          :inst  :alloca
+                          :type  {:size 5
+                                  :type :i8}
+                          :size  {:type :i8
+                                  :size 1}
+                          :align 1}
+                         {:inst  :store
+                          :val   {:type {:type :i8
+                                         :size 5}
+                                  :arg  {:type    :i8
+                                         :vector? false
+                                         :vals    [37 108 100 10 0]}}
+                          :loc   {:type {:type :i8
+                                         :size 5
+                                         :ptr? true}
+                                  :arg  'A_1}
+                          :align 1}
+                         {:ret       'A_2
+                          :inst      :bitcast
+                          :from-type {:type :i8
+                                      :size 5
+                                      :ptr? true}
+                          :arg       'A_1
+                          :to-type   :i8*}
+                         {:inst    :call
+                          :type    :i32
+                          :fn-type [:i8*, :...]
+                          :fn      :printf
+                          :args    [{:type   :i8*
+                                     :arg    'A_2
+                                     :params [:nonnull "dereferenceable(5)"]}
+                                    {:type :i64
+                                     :arg  'T_2}]}
+                         {:inst :ret
+                          :type :i64
+                          :arg  0}]}]})
 
 (def imports
-  [{:global?   true
-    :name      :read
-    :attrs     "#0"
-    :rettype   :i64
-    :ret-attrs [:noundef]
-    :unnamed   :local_unnamed_addr
-    :args      [[:i32 :noundef] [:i8* :nocapture :noundef] [:i64 :noundef]]}
-   {:global?   true
-    :name      :printf
-    :attrs     "#0"
-    :rettype   :i32
-    :ret-attrs [:noundef]
-    :unnamed   :local_unnamed_addr
-    :args      [[:i8* :nocapture :noundef :readonly] [:...]]}
-   {:global?   true
-    :name      :strtol
-    :attrs     "#0"
-    :rettype   :i64
-    :ret-attrs [:noundef]
-    :unnamed   :local_unnamed_addr
-    :args      [[:i8* :readonly] [:i8** :nocapture] [:i32]]}
-   {:global?   true
-    :name      :llvm.memcpy.p0i8.p0i8.i64
-    :attrs     "#0"
-    :rettype   :void
-    :ret-attrs []
-    :args      [[:i8* :noalias :nocapture :writeonly]
-                [:i8* :noalias :nocapture :readonly]
-                [:i64]
-                [:i1 :immarg]]}])
+  [{:inst    :declare
+    :name    :read
+    :attrs   "#0"
+    :type    :i64
+    :params  [:noundef]
+    :unnamed :local_unnamed_addr
+    :args    [{:type   :i32
+               :params [:noundef]}
+              {:type   :i8*
+               :params [:nocapture :noundef]}
+              {:type   :i64
+               :params [:noundef]}]}
+   {:inst    :declare
+    :name    :printf
+    :attrs   "#0"
+    :type    :i32
+    :params  [:noundef]
+    :unnamed :local_unnamed_addr
+    :args    [{:type   :i8*
+               :params [:nocapture :noundef :readonly]}
+              {:arg :...}]}
+   {:inst    :declare
+    :name    :strtol
+    :attrs   "#0"
+    :type    :i64
+    :params  [:noundef]
+    :unnamed :local_unnamed_addr
+    :args    [{:type   :i8*
+               :params [:readonly]}
+              {:type   :i8**
+               :params [:nocapture]}
+              {:type :i32}]}
+   {:inst  :declare
+    :name  :llvm.memcpy.p0i8.p0i8.i64
+    :attrs "#0"
+    :type  :void
+    :args  [{:type   :i8*
+             :params [:noalias :nocapture :writeonly]}
+            {:type   :i8*
+             :params [:noalias :nocapture :readonly]}
+            {:type :i64}
+            {:type   :i1
+             :params [:immarg]}]}])
 
 (def prog
   [fib
