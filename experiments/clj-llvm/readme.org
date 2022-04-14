@@ -94,14 +94,25 @@ This document will discuss a tower of languages to build the base of it.
    {:args []
     :properties ...
     :name ...
-    :blocks [{:label, :instructions}] }
+    :blocks [{:label, :instructions}]}
 
-  The =call= instruction will be a bit special. Not very.
+   The =call= instruction will be a bit special. Not very.
 
-  This representation is intended to be machine generated and machine consumed,
-  so being overly explicit is best.
+   This representation is intended to be machine generated and machine consumed,
+   so being overly explicit is best.
 
-  I'll need to play with some simple programs to see if this makes any sense.
+   I'll need to play with some simple programs to see if this makes any sense.
+** High Level Representation
+   There are a lot of aspects of IR which are needlessly verbose. Arrays and
+   Vectors need to be homogeneous, but the type of each element needs to be
+   specified. A lot of type inference is trivial. Simple proceedures, like macros,
+   would reduce work enourmously.
+
+   In the spirit of lisp, we can build up the platform instead of just digging down
+   from the language we're trying to write.
+
+   I'll need to spend more time working with IR and get the data representation
+   working before really designing this. This bit is art, not engineering.
 ** A minimal lisp
    What's the minimal set of constructs we need to have a lisp?
 
@@ -154,11 +165,15 @@ This document will discuss a tower of languages to build the base of it.
    establised.
 * Homeless features
 ** global reference by value (infinite hash set)
+** Automatic transients
+   This will require support from the allocator, but once we have a reference count
+   on every reference (they don't need to be threadsafe on the stack) we will know
+   dynamically when it's safe to mutate a value in place, and when we need to
+   create a new one.
 ** binary destructuring
    This will be needed for interacting effectively with gpus, maybe for simd
    cpu opts as well, but to a lesser extent.
 ** symbolic arithmetic
-**
 * Questions
   At what level of abstraction do we introduce name-by-value to the language
   tower?
@@ -169,3 +184,9 @@ This document will discuss a tower of languages to build the base of it.
   Is it possible to write a branchless filter transducer? Not that this is all
   that important, but it probably is a pretty simple thing to do that will bring
   some benefits being at the very bottom.
+* Reading
+** https://stackoverflow.com/questions/71707983/dynamic-linking-without-libc
+   An attempt to link in Vulkan without libc. A failed attempt, but I don't even
+   know where to start.
+** https://releases.llvm.org/13.0.0/docs/Reference.html#api-reference
+   LLVM docs index page. Not just IR.
