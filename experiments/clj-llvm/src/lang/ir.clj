@@ -1,14 +1,71 @@
 (ns lang.ir
-  (:refer-clojure :exclude [compile]))
+  (:refer-clojure :exclude [compile])
+  (:require [clojure.string :as str]))
 
-(def preamble
-  ["source_filename = \"none\""
-   "target datalayout = \"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128\""
-   "target triple = \"x86_64-pc-linux-gnu\""])
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Utils
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn xor [a b]
+  (or (and a (not b))
+      (and (not a) b)))
+
+(defn gen-type [t]
+  (cond (keyword? t) (name t)
+        (map? t)     (let [{:keys [type size vector? ptr?]} t]
+                       (str
+                        (if (integer? size)
+                          (str
+                           (if vector? "<" "[")
+                           size " x " (name type)
+                           (if vector? ">" "]"))
+                          (name type))
+                        ;; REVIEW: This is a weird way to talk about pointer
+                        ;; pointer pointer pointers...
+                        (when ptr?
+                          (apply str (take ptr? (repeat "*"))))))))
+
+(defn gen-ptr-type [t]
+  (gen-type
+   (cond (map? t)     (update t :ptr? (fnil inc 0))
+         (keyword? t) {:type t
+                       :ptr? 1})))
+
+(defn gen-fn-type [[& args]]
+  (str "(" (apply str (interpose ", " (map gen-type args))) ")"))
+
+(defn gen-agg [{:keys [type vals vector?]}]
+  (str (if vector? "<" "[")
+       (apply str (interpose ", " (map (partial str (gen-type type) " ") vals)))
+       (if vector? ">" "]")))
+
+(defn lref
+  "Local refs and literal values."
+  [x]
+  (cond
+    (symbol? x)  (str "%" (name x))
+    ;; This special case covers the varargs `...`. It's an ugly hack.
+    (keyword? x) (name x)
+    (integer? x) x
+    (boolean? x) (str x)
+    (map? x)     (gen-agg x)))
+
+(defn gref [s]
+  (str "@" (name s)))
+
+(defn gen-arg [{:keys [type arg params]}]
+  (str
+   (gen-type type)
+   (apply str (interleave (repeat " ") (map name params)))
+   (when-not (nil? arg) (str " " (lref arg)))))
 
 (defn gen-label [] (str (gensym "label_")))
 (defn gen-local [] (str "%" (name (gensym "t_"))))
 (defn gen-global [] (str "@" (name (gensym "fn_"))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Code gen
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn inst-type [x]
   (cond
@@ -16,54 +73,48 @@
     (and (map? x) (contains? x :block)) ::block
     (map? x)                            ::inst))
 
-(defn lref [x]
-  (cond
-    (symbol? x)  (str "%" (name x))
-    (keyword? x) (name x)
-    (integer? x) x))
-
-(defn gref [s]
-  (str "@" (name s)))
-
 (defmulti gen-ll #'inst-type)
 (defmulti gen-inst :inst)
 
 (defmethod gen-ll ::prog
   [x]
-  (map gen-ll x))
+  (apply str (interleave (map gen-ll x) (repeat "\n"))))
+
+(defn gen-block-line
+  [{:keys [ret] :as x}]
+  (str (when ret (str (lref ret) " = "))
+       (gen-inst x)
+       "\n"))
 
 (defmethod gen-ll ::block
   [{:keys [label block]}]
-  [(str (if label (name label) (gen-label)) ":")
-   (map gen-ll block)])
+  (str (if label (name label) (gen-label)) ":\n"
+       (apply str (interleave (repeat "  ") (map gen-block-line block)))
+       "\n"))
 
 (defmethod gen-ll ::inst
   [{:keys [ret] :as x}]
-  (concat (when ret [(lref ret) "="])
-          (gen-inst x)))
-
-(defn gen-arg [xs]
-  (apply str (interpose " " (map lref xs))))
+  (gen-inst x))
 
 (defn fn-sig
   [{:keys [inst fn-type type args attrs params unnamed blocks] :as x}]
-  (apply concat
-         [(name inst)]
-         (when (seq params)
-           (map lref params))
-         [(lref type)
-          (when fn-type ["fn-type"])
-          (gref (:name x))
-          "("]
-         (interpose "," (map gen-arg args))
-         [")"
-          (when unnamed
-            (lref unnamed))
-          (when attrs
-            attrs)
-          (when blocks "{")]
-         (when blocks
-           [])))
+  (str (name inst) " "
+       (when (seq params)
+         (apply str (interleave (map name params) (repeat " "))))
+       (gen-type type) " "
+       (gref (:name x))
+       "("
+       (apply str (interpose ", " (map gen-arg args)))
+       ")" " "
+       (when unnamed
+         (str (name unnamed) " "))
+       (when attrs
+         (str attrs " "))
+       (when blocks
+         (str "{\n"
+              (apply str (map gen-ll blocks))
+              "}"))
+       "\n"))
 
 (defmethod gen-inst :declare
   [x]
@@ -74,246 +125,130 @@
   (fn-sig f))
 
 (defmethod gen-inst :switch
-  [x]
-  (let [[_ t v _ default & dests] (:= x)]
-    (str "switch" " " (name t) " " (lref v) ", " "label" " " (lref default)
-          " " "["
-          (apply str (interleave (repeat "\n    ")
-                                 (map (fn [[t v _ label]]
-                                        (str (name t) " " (lref v) ", label "
-                                             (lref label)))
-                                      dests)))
-          "\n" "  " "]")))
+  [{:keys [type switch default cases]}]
+  (str "switch" " " (gen-type type) " "
+       (lref switch) ", " "label" " " (lref default)
+       " " "["
+       (apply str (interleave (repeat "\n    ")
+                              (map (fn [[v label]]
+                                     (str (gen-type type ) " "
+                                          (lref v) ", label "
+                                          (lref label)))
+                                   cases)))
+       "\n" "  " "]"))
 
 (defmethod gen-inst :call
-  [{:keys [ret fn ]}]
-  #_(str
-   (if ret (lref ret) (gen-local)) " = "
-   "call" " " (name t) " " (gref f) "("
-   (apply str (interpose ", " (map (fn [[t v]] (str (name t) " " (lref v)))
-                                   (partition 2 args))))
+  [{:keys [fn type fn-type args]}]
+  (str "call" " "
+   (gen-type type)
+   " "
+   (when fn-type
+     (str (gen-fn-type fn-type) " "))
+   (gref fn) "("
+   (apply str (interpose ", " (map gen-arg args)))
    ")"))
+
+(defn gen-simple-inst
+  "Simple instructions are unary or binary instructions like `ret`, `add`, etc."
+  [{:keys [inst type arg args]}]
+  ;; FIXME: This strikes me as the kind of laziness I'll regret later.
+  (assert (xor (nil? arg) (empty? args)))
+  (str (name inst) " " (gen-type type) " "
+       (if arg
+         (lref arg)
+         (apply str (interpose ", " (map lref args))))))
 
 (defmethod gen-inst :ret
   [x]
-  (let [[_ t v] (:= x)]
-    (str "ret" " " (name t) " " (lref v))))
+  (gen-simple-inst x))
 
 (defmethod gen-inst :add
-  [{:keys [ret] :as x}]
-  (let [[_ t v1 v2] (:= x)]
-    (str
-     (if ret (lref ret) (gen-local))
-     " = "
-     "add nuw nsw" " " (name t) " " (lref v1) ", " (lref v2))))
+  [x]
+  (gen-simple-inst x))
 
 (defmethod gen-inst :sub
-  [{:keys [ret] :as x}]
-  (let [[_ t v1 v2] (:= x)]
-    (str
-     (if ret (lref ret) (gen-local))
-     " = "
-     "sub nuw nsw" " " (name t) " " (lref v1) ", " (lref v2))))
+  [x]
+  (gen-simple-inst x))
 
 (defmethod gen-inst :br
-  [x]
-  (let [[_ _ label] (:= x)]
-    (str "br label " (lref label))))
+  [{:keys [cond then else]}]
+  (str "br "
+       (when cond
+         (str (gen-type (:type cond)) " " (lref (:arg cond)) ", "))
+       "label " (lref then)
+       (when else
+         (str ", label " (lref else)))))
 
 (defmethod gen-inst :phi
-  [{:keys [ret] :as x}]
-  (let [[_ t & comefroms] (:= x)]
-    (str
-     (if ret (lref ret) (gen-local))
-     " = "
-     "phi" " " (name t) " "
-     (apply str (interpose ", " (map (fn [[v from]]
-                                       (str "[ " (lref v) ", " (lref from) "]"))
-                                     comefroms))))))
+  [{:keys [type locations]}]
+  (str
+   "phi" " " (gen-type type) " "
+   (apply str (interpose ", " (map (fn [[v from]]
+                                     (str "[ " (lref v) ", " (lref from) " ]"))
+                                   locations)))))
+
+;;;;; Type Casting
+
+(defn gen-cast
+  [{:keys [inst from to arg]}]
+  (str
+   (name inst) " " (gen-type from) " " (lref arg) " to " (gen-type to)))
 
 (defmethod gen-inst :trunc
-  [{:keys [ret] :as x}]
-  (let [[_ t1 v _ t2] (:= x)]
-    (str
-     (if ret (lref ret) (gen-local))
-     " = "
-     "trunc" " " (name t1) " " (lref v) " to " (name t2))))
+  [x]
+  (gen-cast x))
+
+(defmethod gen-inst :bitcast
+  [x]
+  (gen-cast x))
+
+;;;;; Comparisons
+
+(defmethod gen-inst :icmp
+  [{:keys [type cmp args]}]
+  (str "icmp " (name cmp) " " (gen-type type) " "
+       (apply str (interpose ", " (map lref args)))))
+
+;;;;; Memory
+
+(defmethod gen-inst :alloca
+  [{:keys [type size align]}]
+  (str "alloca "
+       (gen-type type)
+       (when size
+         (str ", " (gen-type (:type size)) " " (lref (:size size))))
+       (when align
+         (str ", align " align))))
+
+(defmethod gen-inst :store
+  [{:keys [type val ptr]}]
+  (str "store " (gen-type type) " " (lref val) ", "
+       (gen-ptr-type type) " " (lref ptr)))
+
+(defmethod gen-inst :load
+  [{:keys [type arg]}]
+  (str "load " (gen-type type) ", " (gen-ptr-type type) " " (lref arg)))
+
+(defmethod gen-inst :getelementptr
+  [{:keys [inbounds? type ptr args]}]
+  (str "getelementptr " (when inbounds? "inbounds ")
+       (gen-type type) ", "
+       (gen-ptr-type type) " " (lref ptr) ", "
+       (apply str (interpose ", " (map gen-arg args)))))
+
+;;;;; default
 
 (defmethod gen-inst :default
   [x]
-  (str "[ STUB: " (inst-type x) "]\n")
-)
+  [ "UNIMPLEMENTED" x])
+
+(def preamble
+  "IR header. Should be generated."
+  ["source_filename = \"none\""
+   "target datalayout = \"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128\""
+   "target triple = \"x86_64-pc-linux-gnu\""])
 
 (defn compile [p]
   (str (apply str (interpose "\n"  preamble))
        "\n\n"
        (gen-ll p)))
-
-(def fib
-  {:global?    true
-   :name       :fib
-   :attrs      "#0"
-   :params  [:dso_local]
-   :addr-space []
-   :unnamed    :local_unnamed_addr
-   :meta       {}
-   :type    :i64
-   :args       [[:i32 'i]]
-   :blocks     [{:label 'entry
-                 :block [{:=
-                          [:switch :i32 'i :label 'default
-                           [:i32 0 :label 'return]
-                           [:i32 1 :label 'jump]]}]}
-                {:label 'jump
-                 :block [{:= [:br :label 'return]}]}
-                {:label 'default
-                 :block [{:ret 'T_1
-                          :=   [:sub :i32 'i 1]}
-                         {:ret 'T_2
-                          :=   [:call :i64 :fib [:i32 'T_1]]}
-                         {:ret 'T_3
-                          :=   [:sub :i32 'T_1 1]}
-                         {:ret 'T_4
-                          :=   [:call :i64 :fib [:i32 'T_3]]}
-                         {:ret 'T_5
-                          :=   [:add :i64 'T_2 'T_4]}
-                         {:= [:br :label 'return]}]}
-                {:label 'return
-                 :block [{:ret 'res
-                          :=   [:phi :i64 [1 'jump] ['T_5 'default] [0 'entry]]}
-                         {:= [:ret :i64 'res]}]}]})
-
-(def read-input
-  {:global? true
-   :name    :readInput
-   :attrs   "#0"
-   :type :i32
-   :args    []
-   :blocks  [{:label 'entry
-              :block [{:ret 'A_1
-                       := [:alloca [10 :x :i8] :align 1]}
-                      {:ret 'A_2
-                       := [:alloca :i8 :align 1]}
-                      {:= [:call :i64 :read [[:i32 0] [:i8* 'A_2] [:i64 1]] :#0]}
-                      {:ret 'T_1
-                       := [:load :i8 :i8* 'A_2]}
-                      {:ret 'T_2
-                       := [:icmp :eq :i8 'T_1 10]}
-                      {:= [:br :i1 'T_1 :label 'endread :label 'loopread]}]}
-             {:label 'loopread
-              :block []}
-             {:label 'endread
-              :block []}
-             {:label 'memcpy
-              :block []}
-             {:label 'return
-              :block []}]})
-
-(def main
-  {:inst       :define
-   :name       :main
-   :attrs      "#0"
-   :type       :i64
-   :params     [:dso_local]
-   :addr-space []
-   :unnamed    :local_unnamed_addr
-   :args       []
-   :blocks     [{:block [{:inst :call
-                          :ret  'T_1
-                          :type :i32
-                          :fn   :readInput
-                          :args []}
-                         {:inst :call
-                          :ret  'T_2
-                          :type :i64
-                          :fn   :fib
-                          :args [{:type :i32
-                                  :arg  'T_1}]}
-
-                         {:ret   'A_1
-                          :inst  :alloca
-                          :type  {:size 5
-                                  :type :i8}
-                          :size  {:type :i8
-                                  :size 1}
-                          :align 1}
-                         {:inst  :store
-                          :val   {:type {:type :i8
-                                         :size 5}
-                                  :arg  {:type    :i8
-                                         :vector? false
-                                         :vals    [37 108 100 10 0]}}
-                          :loc   {:type {:type :i8
-                                         :size 5
-                                         :ptr? true}
-                                  :arg  'A_1}
-                          :align 1}
-                         {:ret       'A_2
-                          :inst      :bitcast
-                          :from-type {:type :i8
-                                      :size 5
-                                      :ptr? true}
-                          :arg       'A_1
-                          :to-type   :i8*}
-                         {:inst    :call
-                          :type    :i32
-                          :fn-type [:i8*, :...]
-                          :fn      :printf
-                          :args    [{:type   :i8*
-                                     :arg    'A_2
-                                     :params [:nonnull "dereferenceable(5)"]}
-                                    {:type :i64
-                                     :arg  'T_2}]}
-                         {:inst :ret
-                          :type :i64
-                          :arg  0}]}]})
-
-(def imports
-  [{:inst    :declare
-    :name    :read
-    :attrs   "#0"
-    :type    :i64
-    :params  [:noundef]
-    :unnamed :local_unnamed_addr
-    :args    [{:type   :i32
-               :params [:noundef]}
-              {:type   :i8*
-               :params [:nocapture :noundef]}
-              {:type   :i64
-               :params [:noundef]}]}
-   {:inst    :declare
-    :name    :printf
-    :attrs   "#0"
-    :type    :i32
-    :params  [:noundef]
-    :unnamed :local_unnamed_addr
-    :args    [{:type   :i8*
-               :params [:nocapture :noundef :readonly]}
-              {:arg :...}]}
-   {:inst    :declare
-    :name    :strtol
-    :attrs   "#0"
-    :type    :i64
-    :params  [:noundef]
-    :unnamed :local_unnamed_addr
-    :args    [{:type   :i8*
-               :params [:readonly]}
-              {:type   :i8**
-               :params [:nocapture]}
-              {:type :i32}]}
-   {:inst  :declare
-    :name  :llvm.memcpy.p0i8.p0i8.i64
-    :attrs "#0"
-    :type  :void
-    :args  [{:type   :i8*
-             :params [:noalias :nocapture :writeonly]}
-            {:type   :i8*
-             :params [:noalias :nocapture :readonly]}
-            {:type :i64}
-            {:type   :i1
-             :params [:immarg]}]}])
-
-(def prog
-  [fib
-   imports
-   main])
