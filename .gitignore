@@ -12,3 +12,4 @@ conf.edn
 *.log
 vk.xml
 *.bc
+test.ll
