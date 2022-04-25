@@ -1,0 +1,65 @@
+#+TITLE: The Search for a Runtime Host
+
+How does one decide in which language to implement a language? Familiarity with
+a language is the default criterion since I want to focus on the implementand
+and not worry about learning the implemention language.
+
+But the scripting and jvm languages I'm most familiar might not be the most
+suitable to task.
+
+The problem with an approach like this is that I know myself and I'm not going
+to put a lot of effort into alternate language implementations if I get one
+working in clojure.
+
+* Criteria
+  Simple rubric by which to evaluate a language.
+  Note that we're assuming here that I'll use the llvm as backend early on.
+** Interactive development
+   This
+** Implement a lisp repl
+   Any language can do this, but evaluate the simplicity of different solutions.
+** C FFI
+** Generate Vulkan bindings from vulkan.xml
+** Suitability of host language as initial runtime
+*** concurrency and message passing
+*** sandboxing
+*** ease of gradual bootstrapping
+* Possible candidates
+** Clojure
+*** Interactive dev
+    cidre
+*** implement lisp repl
+    trivial
+*** C FFI
+   JNI is a shitshow.
+   This might do better: https://github.com/jnr/jnr-ffi
+
+   Needs a thorough evaluation. Or just evaluate this guy's attempt and use some
+   of his work:
+   https://github.com/omkamra/jnr/blob/master/test/omkamra/jnr_test.clj
+*** Generate vulkan bindings from xml
+    clj-vulkan project is a basic proof of concept, but it needs to be ported to
+    a better ffi than lwjgl uses.
+*** Suitability as an initial runtime
+    migrating off of the jvm might prove to be a mammoth undertaking. I have to
+    remove all vestiges of java bytecode from the app which could take forever.
+
+    The jvm is also heavy, so I'm not sure how interactive the experience will
+    be as datastructures are translated back and forth.
+
+    Is is possible to implement clojure protocols with native datatypes? If so,
+    then once I migrate the data structures, everything will start to fall into
+    place. Otherwise I'll need to get everything working before any of it will
+    work. Or suffer interminable translation back and forth.
+
+    On the otherhand, forcing a clean break might be a good thing. If I were to
+    use Go, for instance, I might just leave the native channels in place
+    indefinitely because they're there. Not sure that's a bad thing.
+** Common Lisp
+** Forth?
+   Are there any remotely modern implementations? Some quick research makes it
+   look like I'd be better off implementing my own.
+** Go
+** Julia
+** Zig
+** Nim

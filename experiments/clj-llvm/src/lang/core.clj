@@ -1,11 +1,8 @@
 (ns lang.core
-  (:refer-clojure :exclude [compile])
-  (:require [clojure.walk :as walk])
+  (:gen-class)
+  (:require [clojure.edn :as edn]
+            [clojure.walk :as walk])
   (:import java.io.File))
-
-(defn label [] (str (gensym)))
-(defn local [] (str "%" (name (gensym))))
-(defn global [] (str "@" (name (gensym))))
 
 (defn grun
   "Ghetto run shell `cmd`."
@@ -21,50 +18,24 @@
     {:path (.getAbsolutePath f)
      :file f}))
 
-(def then-block
-  {:type :block
-   :name 1
-   :content
-   [:br :label :%9]})
+(defn lisp [expr]
+  (try
+    (second expr)
+    (catch Throwable e
+      (println "Error in eval: " e)
+      nil)))
 
-(def fib
-  {:type   :fn
-   :name   :fib
-   :args   [{:type :i32 :name 0}]
-   :blocks {1 {:type :block
-               :body {1 {}}}}
-   :meta   {}})
+(defn stdin-repl []
+  (let [r (clojure.java.io/reader System/in)]
+    (loop []
+      (print "\n> ")
+      (flush)
+      (when-let [t (.readLine r)]
+        (when-let [expr (try (edn/read-string t)
+                             (catch Throwable e (println "Error in reader: " e)))]
+          (println (lisp expr)))
+        (recur)))
+    (.close r)))
 
-(def fib
-  '(fn [i]
-     (cond
-       (= i 0) 0
-       (= i 1) 1
-       true    (+ (fib (- i 1)) (fib (- i 2))))))
-
-(defmulti dispatch first)
-
-(defmethod dispatch :default
-  [x]
-  (throw (Exception. (str "unsupported form " (str x)))))
-
-(defmethod dispatch 'fn
-  [[_ args & body]]
-  )
-
-(defn check-num [x]
-  (if (integer? x)
-    x
-    (throw (Exception. (str "unsupported number: " x)))))
-
-(defn compile [form]
-  (walk/postwalk
-   (fn [x]
-     (cond
-       (number? x)                         (check-num x)
-       (string? x)                         x
-       (vector? x)                         x
-       (map? x)                            x
-       (and (list? x) (symbol? (first x))) (dispatch x)
-       :else                               x))
-   form))
+(defn -main [& args]
+  (stdin-repl))

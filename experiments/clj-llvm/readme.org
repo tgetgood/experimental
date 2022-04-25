@@ -35,6 +35,49 @@ This document will discuss a tower of languages to build the base of it.
    Would it be feasible to bootstrap the runtime, but keep the clojure front
    end? By front end I mean nrepl, the reader, cider, etc.. That's an
    interesting idea.
+** A Sufficiently Smart Runtime
+   This is the real goal of the entire endeavour. Very high level code generates
+   lower level code which generates code which ... until you get words being
+   pushed between registers.
+
+   Most low level tools see the language source as the last step. Only compiler
+   devs and hardware nuts should be looking at the *output* of the compiler,
+   right? No, the output of the compiler is just more code. The compiler is just
+   more code, all of it should be traceable and debuggable at runtime and as
+   much as possible should be compiled away in production.
+
+   There's no intention of having code that is fast from a machine or micro
+   benchmark point of view. The only goal is to have complex software which is
+   fast from a human point of view. The small wins of static optimisation get
+   you stuck in (I conjecture very low) local optima. By being slower in a way
+   which people will barely notice, we can be faster in the long run.
+
+   Modern software doesn't do something and halt. Nearly all meaningful software
+   is meant to run indefinitely until someone shuts it down or the power goes
+   out.
+
+   Hotspot does what I want, but it doesn't remember as well as it should. of
+   course memory has a cost, but storage is so fast and cheap nowadays. Also
+   hotspot is the result of a million phds, but hopefully I can just crib a lot
+   of ideas from that work.
+** Local First
+   Locality is a forest. We have caches (always more than one nowadays and the
+   L1 caches of different cores are relativistically distant frames of
+   reference), ram, local disk (nvme is faster today than DDR2 was), and network
+   storage.
+
+   There's also a parallel branch the goes from the gpu cache to vram to main
+   ram to ...
+
+   None of that has much to do with what I mean by local first, so let's try
+   again.
+
+   You device should work perfectly well without any network connection. Ideally
+   your device should keep working when hard disks, gpus, or other pieces are
+   removed.
+
+   That means redundancy, which is easy to confuse with waste, but the value
+   will — I hope — become apparent.
 * Levels of Abstraction
   I've chosen to implement this directly on the llvm after evaluating many
   options. The ultimate reason is simplicity. I need to interact with hardware,
@@ -190,3 +233,68 @@ This document will discuss a tower of languages to build the base of it.
    know where to start.
 ** https://releases.llvm.org/13.0.0/docs/Reference.html#api-reference
    LLVM docs index page. Not just IR.
+** Scheduling on GPUs
+   https://lirias.kuleuven.be/retrieve/268015
+
+   Paper about code generation for GPU computations.
+* Research Agenda
+  I desperately need to organise my reading and take better notes.
+
+  The proximate goal is to write a minimal lisp repl with native interop.
+
+  The native interop is initially to work with vulkan. But to generate the
+  structs and calls vulkan expects, I need to parse that giant xml file, so I
+  should do that at compile time using a stable language (initially).
+
+  So what do I want from the repl, specifically? What is the minimal useful repl
+  for interactive development? Do I need to be able to create new ffi calls at
+  runtime?
+
+  Do I even need the any of the rpl steps to be in the host language? Is my bogo
+  compiler fast enough to type code into a clojure repl, have it compile and
+  execute flubless, and pipe the response back to the clojure repl?
+
+  Pros:
+    - mature toolchain
+    - familiar
+    - easier to get going
+  Cons:
+    - Do I need to implement interop between clj and flubless to pass data back
+      and forth?
+
+      Actually, I don't think I do. I can return edn from flubless, but I'll
+      need to translate the inputs from clj to something flubless can
+      understand.
+
+    - Rube Goldbergundian
+    - slow. But too slow?
+
+  Unsolved issues:
+    - How does a jit compiler work? How do you replace the machine code
+      currently being executed?
+
+      Do I care at present? Can I just define a code unit (a flub in this case)
+      which is the basic building block of the program, write a super naive
+      interpreter for it, and then pull in llvm to do jit compilation and just
+      edit the function symbols, tables, whatever to use the faster code?
+
+      I really don't understand enough about compilers to even express this
+      problem. This is going to be an ugly program. At least I'll learn what not
+      to do.
+
+    - The JVM is not a great fit for this. Is it good enough, or am I coasting
+      on what's familiar?
+
+      The problem with the jvm approach is that I can't embed anything, which
+      means everything available at runtime has to be compiled. I can't start
+      with a foreign runtime and slowly replace parts of it as I go.
+
+      I should definitely look into other platforms on which I can directly
+      interoperate with C code without all of the nuissance required in the
+      JVM.
+
+      Possible candidates: Go, Nim, Zig, Julia, why not just C? you know why not.
+
+      The simpler the type system and the more interactive the development cycle
+      the better. It could be quite a while before I have the system
+      sufficiently bootstrapped to work on it from within.
