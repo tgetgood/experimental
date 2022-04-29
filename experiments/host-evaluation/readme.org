@@ -61,5 +61,17 @@ working in clojure.
    look like I'd be better off implementing my own.
 ** Go
 ** Julia
+   Julia shares a lot of the spirit of what I'm doing. Dynamic and fast,
+   heterogeneous, jit compiled, hosted, the AST is lisp (can I program in the
+   ast without learning the surface syntax?) so we get real macros (though
+   they're probably unnatural to most people learning julia from the blub world
+   (it's marketed to data science and scientific computing, so fortran to python
+   spectrum.).
+
+   I almost feel that I have to implement this in julia just to learn about how
+   the language is implemented.
+
+   The number types were clearly thought out with mathematics in mind — and not
+   just numerics — which is so rare for a programming language.
 ** Zig
 ** Nim
