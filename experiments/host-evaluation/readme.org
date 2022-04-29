@@ -75,3 +75,25 @@ working in clojure.
    just numerics — which is so rare for a programming language.
 ** Zig
 ** Nim
+* Test V1
+  What's the simplest program that tests all the moving parts?
+
+  Lisp repl that can interpret or jit compile functions and execute them.
+
+  We don't need to implement the full compiler, just a big enough subset to get
+  the idea.
+
+  So
+  - reader
+  - data structures (just vectors and maps to start, copy on write is good
+    enough for a demo).
+  - interpreter
+  - pretty print
+  - C FFI to llvm
+  - bitcode generation
+  - jit compile and replace interpreted fns with flubs.
+* Test V2
+  Once we have interop up and running:
+  - Generate vulkan bindings from xml
+  - write simple graphics program (fractal with pan and zoom should be complex
+    enough to get a feel for fit).
