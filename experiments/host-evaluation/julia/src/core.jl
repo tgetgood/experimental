@@ -1,59 +1,13 @@
-y = 7
-
-z = y * 5 + 6 
-
-q1(a, s, b) = (s - b)/2*a
-
-function q(a, b ,c)
-    s = sqrt(b^2 - 4*a*c)
-    q1(a, s, b), q1(a, -s, b)
-end
-
-struct Vec
-    elements
-end
-
-struct List
-    elements
-end
-
-struct MapEntry
-    key
-    val
-end
-
-struct Map
-    elements
-    length
-end
-
-struct Symbol
-    namespace::String
-    name::String
-end
-
-struct Keyword
-    namespace::String
-    name::String
-end
-
-Sexp = Union{Vec, Map, Symbol, Keyword, String, Number}
+################################################################################
+##### Tokenise
+################################################################################
 
 """There's got to be a better way to do this"""
 function append(v, t)
     push!(copy(v), t)
 end
 
-function digit(s)
-    try
-        parse(UInt, s)
-        return true
-    catch Error
-        return false
-    end
-end
-
-delimiters = "()[]{}"
+delimiters = "()[]{}\""
 
 whitespace = " \t\r\n"
 
@@ -84,39 +38,26 @@ function tokenise(s::String)
     t1([], s)
 end
 
-function buildlist(tokens)
-    elements = map(buildsexp, tokens)
-    return List(elements, length(elements))
-end
-
-function buildsexp(input)
-    if isa(input, Vector)
-        tokens = input
-        f = tokens[begin]
-        if f === "("
-            @assert tokens[end] === ")" "Unbalanced parentheses"
-            return ["list", map(buildsexp, tokens[begin+1:end-1])]
-        elseif f === "["
-            @assert tokens[end] === "]" "Unbalanced brackets"
-            return ["vector", map(buildsexp, tokens[begin+1:end-1])]
-        elseif f === "{"
-            @assert tokens[end] === "}" "Unbalanced braces"
-            return ["map", map(buildsexp, tokens[begin+1:end-1])]
-        else
-            @assert false "unreachable"
-        end
-    else
-        return input
+function digit(s)
+    try
+        parse(UInt, s)
+        return true
+    catch Error
+        return false
     end
 end
 
-buildatom(x) = x
+################################################################################
+#### Sexp tree construction
+##
+## This sorts the stream of tokens into a tree of tokens, with types branches
+## for different kinds of collections
+################################################################################
 
 struct delim
     open
     close
     mode
-    name
 end
 
 struct pos
@@ -125,9 +66,10 @@ struct pos
 end
 
 delims = [
-    delim("(", ")", :list, "parens"),
-    delim("[", "]", :vector, "brackets"),
-    delim("{", "}", :map, "braces")
+    delim("(", ")", :list),
+    delim("[", "]", :vector),
+    delim("{", "}", :map),
+    delim("\"", "\"", :string)
 ]
 
 collections = reduce(merge,
@@ -148,25 +90,91 @@ function tree(acc, mode, tokens)
     p = get(collections, head, nothing)
 
     if p === nothing
-        tree(append(acc, buildatom(head)), mode, tail)
+        tree(append(acc, head), mode, tail)
     else
-        if p.action === :open
-            (sub, subtail) = tree([], p.delim.mode, tail)
-            tree(append(acc, [p.delim.mode, sub]), mode, subtail)
-        else
+        if p.action === :close || mode === :string && head === "\""
         @assert mode === p.delim.mode "mismatched delimiters. got " *
             p.delim.close *
             " to terminate a " *
             String(mode)
         return (acc, tail)
+            
+        elseif p.action === :open 
+            (sub, subtail) = tree([], p.delim.mode, tail)
+            tree(append(acc, [p.delim.mode, sub]), mode, subtail)
+        else
         end
     end
 end        
     
+function buildtree(tokens)
+    first(tree([], :root, tokens))
+end
+
+################################################################################
+##### building Sexp Types
+################################################################################
+
+struct Vec
+    elements
+end
+
+struct List
+    elements
+end
+
+struct MapEntry
+    key
+    val
+end
+
+struct Map
+    elements
+    length
+end
+
+struct Symbol
+    namespace::String
+    name::String
+end
+
+struct Keyword
+    namespace::String
+    name::String
+end
+
+Sexp = Union{Vec, Map, Set, Symbol, Keyword, String, Number}
+
+function dequalifyname(s::String)
+end
+
+"""Tries to parse an atom into an Int64, returns nothing if it can't """
+function buildatom(s::String)
+    if s[1] === ':'
+        ns, name = dequalifyname(s[begin+1:end])
+        return Keyword(ns, name)
+    end
+
+    try
+        return parse(Int, s)
+    catch
+        nothing
+    end
+
+    ns, name = dequalifyname(s)
+
+    return Symbol(ns, name)
+end
+
+function buildsexp(tree)
+end
+################################################################################
+##### Assemblage
+################################################################################
 
 """Very basic lisp reader"""
 function read()
-    buildsexp(tokenise(readline()))
+    buildsexp(buildtree(tokenise(readline())))
 end
 
 
