@@ -85,10 +85,10 @@ working in clojure.
 
   So
   - reader
-  - data structures (just vectors and maps to start, copy on write is good
-    enough for a demo).
+  - data structures
+    (just vectors and maps to start, copy on write is good enough for a demo).
   - interpreter
-  - pretty print
+  - pretty print?
   - C FFI to llvm
   - bitcode generation
   - jit compile and replace interpreted fns with flubs.
