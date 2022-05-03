@@ -7,9 +7,14 @@ function append(v, t)
     push!(copy(v), t)
 end
 
-delimiters = "()[]{}\""
+# This is going to be so inefficient...
+function append(v, t, rest...)
+    reduce(append, rest, init=append(v, t))
+end
 
-whitespace = " \t\r\n"
+delimiters = "()[]{}"
+
+whitespace = " \t\r\n,"
 
 function parsetoken(s)
     f(c) = contains(whitespace, c) || contains(delimiters, c)
@@ -18,15 +23,20 @@ function parsetoken(s)
 end
 
 function t1(tokens, s)
+    ## TODO: read strings properly
 
     if length(s) === 0
         return tokens
     else
         c = s[begin:begin]
+        tail = s[begin+1:end]
         if contains(delimiters, c)
-            t1(append(tokens, c), s[begin+1:end])
+            t1(append(tokens, c), tail)
         elseif contains(whitespace, c)
-            t1(tokens, s[begin+1:end])
+            t1(tokens, tail)
+        elseif c === "\""
+            close = findfirst(x -> x === '"', tail)
+            t1(append(tokens, "\"", s[begin+1:close-1], "\""), s[close+1:end])
         else
             (t, rest) = parsetoken(s)
             t1(append(tokens, t), rest)
@@ -68,15 +78,15 @@ end
 delims = [
     delim("(", ")", :list),
     delim("[", "]", :vector),
-    delim("{", "}", :map),
-    delim("\"", "\"", :string)
+    delim("{", "}", :map)
 ]
 
 collections = reduce(merge,
                      map(x -> Dict(
                          x.open => pos(x, :open),
                          x.close => pos(x, :close)
-                     ), delims))
+                     ), delims),
+                     init=Dict("\"" => pos(delim("\"", "\"", :string), :both)))
                      
 function tree(acc, mode, tokens)
     if length(tokens) === 0
@@ -92,7 +102,7 @@ function tree(acc, mode, tokens)
     if p === nothing
         tree(append(acc, head), mode, tail)
     else
-        if p.action === :close || mode === :string && head === "\""
+        if p.action === :close 
         @assert mode === p.delim.mode "mismatched delimiters. got " *
             p.delim.close *
             " to terminate a " *
@@ -102,6 +112,13 @@ function tree(acc, mode, tokens)
         elseif p.action === :open 
             (sub, subtail) = tree([], p.delim.mode, tail)
             tree(append(acc, [p.delim.mode, sub]), mode, subtail)
+        elseif p.action === :both
+            if mode === p.delim.mode
+                return (acc, tail)
+            else
+                (sub, subtail) = tree([], p.delim.mode, tail)
+                tree(append(acc, [p.delim.mode, sub]), mode, subtail)
+            end
         else
         end
     end
@@ -148,7 +165,6 @@ Sexp = Union{Vec, Map, Set, Symbol, Keyword, String, Number}
 function dequalifyname(s::String)
 end
 
-"""Tries to parse an atom into an Int64, returns nothing if it can't """
 function buildatom(s::String)
     if s[1] === ':'
         ns, name = dequalifyname(s[begin+1:end])
@@ -168,6 +184,7 @@ end
 
 function buildsexp(tree)
 end
+
 ################################################################################
 ##### Assemblage
 ################################################################################

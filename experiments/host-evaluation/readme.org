@@ -75,6 +75,10 @@ working in clojure.
    just numerics — which is so rare for a programming language.
 ** Zig
 ** Nim
+* unicode
+  Unicode is important. Not what I really want to focus on, but I need it.
+  π ∀
+
 * Test V1
   What's the simplest program that tests all the moving parts?
 
