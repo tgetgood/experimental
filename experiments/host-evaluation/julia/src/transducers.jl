@@ -53,91 +53,86 @@
 #
 # But this looses composbility which is one of the most valuable aspects of
 # transducers, so we're back to the drawing board.
-abstract type Reducer end
 
-abstract type Transducer end
-
-abstract type SimpleTransducer <: Transducer end
-
-struct MapTransducer <: SimpleTransducer
-    fn
-end
-
-struct FilterTransducer <: SimpleTransducer
-    fn
-end
-
-
-"""Represents a binary operation with identity"""
-struct MonoidReducer <: Reducer
-    identity
-    fn
-end
-
-conj = MonoidReducer([], (acc, next) ->
-                     begin
-                     acc2 = copy(acc)
-                     push!(acc2, next)
-                     return acc2
-                     end)
+##### Example transducers that should play nicely together
 
 function map(f)
-    x -> emit(f(x))
+    function (emit)
+        function (x)
+            emit(f(x))
+        end
+    end
 end
 
 function filter(p)
-    x -> if p(x) === true emit(x) end
-end
-
-function identity(rf::MonoidReducer)
-    rf.identity
-end
-
-function flush(rf::MonoidReducer, acc)
-    acc
-end
-
-function flush(t::Any, acc)
-    acc
-end
-
-function apply(rf::MonoidReducer, acc, next)
-    rf.fn(acc, next)
-end
-
-function apply(t::MapTransducer, rf::Reducer, acc, next)
-    apply(rf, acc, t.fn(next))
-end
-
-function apply(t::FilterTransducer, rf::Reducer, acc, next)
-    if t.fn(next) === true
-        apply(rf, acc, next)
-    else
-        acc
+    function (emit)
+        function (x)
+            if p(x) === true
+                emit(x)
+            else
+                emit()
+            end
+        end
     end
 end
 
-function transducer(t::Transducer)
-    function (rf)
-        function inner()
-            monoididentity(rf)
+function dup()
+    function (emit)
+        function (x)
+            emit(x, x)
         end
-        function inner(acc)
-            flush(rf, acc)
-        end
-        function inner(acc, next)
-            apply(t, rf, acc, next)
-        end
-        return inner
     end
 end
 
-function runsimple(in, out, f, choice)
-    while true
-        x = take!(in)
-        if x === nothing
-            break
+## Once we start getting into state and pre/post actions, we start needing a new
+## form of polymorphism. Something kind of CLOSy: functions that are polymorphic
+## based on context of invocation. I don't know how else to put that. There's
+## probably a better pattern for this.
+
+## These are marker types that allow us to hack composability into what are
+## really maps, by dispatching polymorphically on pseudo-values.
+#
+# I don't really like this yet, but let's get it working and see if it's even
+# something to improve.
+struct Post end
+struct Pre end
+
+function partition(n)
+    state = []
+    function (emit)
+        function f(x)
+            push!(state, x)
+            if length(state) === n
+                res = copy(state)
+                state = []
+                emit(res)
+            else
+                emit()
+            end
         end
-        put!(out, choice(f, x))
+        # FIXME: This is what I want.
+        function f(switch::Post)
+            if length(state) > 0
+                emit(state)
+            else
+                emit()
+            end
+        end
+        return f
     end
 end
+
+"""Appends xs to the end of transduced stream."""
+function append(xs)
+    function (emit)
+        function f(x)
+            emit(x)
+        end
+        function f(switch::Post)
+            emit(xs)
+        end
+        return f
+    end
+end
+
+#####
