@@ -54,13 +54,13 @@
 # But this looses composbility which is one of the most valuable aspects of
 # transducers, so we're back to the drawing board.
 
+module Transducers end
+
 ##### Example transducers that should play nicely together
 
 function map(f)
     function (emit)
-        function (x)
-            emit(f(x))
-        end
+        emit ∘ f
     end
 end
 
@@ -111,13 +111,13 @@ function partition(n)
             end
         end
         # FIXME: This is what I want.
-        function f(switch::Post)
-            if length(state) > 0
-                emit(state)
-            else
-                emit()
-            end
-        end
+        # function f(switch::Post)
+        #     if length(state) > 0
+        #         emit(state)
+        #     else
+        #         emit()
+        #     end
+        # end
         return f
     end
 end
@@ -125,7 +125,7 @@ end
 """Appends xs to the end of transduced stream."""
 function append(xs)
     function (emit)
-        function f(x)
+        function f(x::Any)
             emit(x)
         end
         function f(switch::Post)
@@ -135,4 +135,48 @@ function append(xs)
     end
 end
 
-#####
+##### Useful transduction
+
+function transduce(tx, rf)
+    function inner()
+        inner(rf())
+    end
+    function inner(acc)
+        ## This `[]` should be some canonical empty stream
+        inner(acc, [])
+    end
+    function inner(acc, stream)
+        function accumulator(acc, n)
+            function emit()
+                acc
+            end
+            function emit(x)
+                rf(acc, x)
+            end
+            function emit(xs...)
+               reduce(rf, xs, init=acc)
+            end
+            tx(emit)(n)
+        end
+        reduce(accumulator, stream, init=acc)
+    end
+    return inner
+end
+
+function conj()
+    return []
+end
+function conj(acc)
+    return acc
+end
+function conj(acc, n)
+    ret = copy(acc)
+    push!(ret, n)
+    return ret
+end
+
+tx = map(x->x+1) ∘  dup() ∘ filter(x->x%2===0) #∘ map(x -> x * 3)
+function test()
+    tx = map(x -> x + 3) ∘ filter(x -> x % 2 === 0) ∘ partition(2) ∘ append([[:test, :pair], [1, 2, 3]])
+    transduce(tx, conj)
+end
