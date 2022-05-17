@@ -1,0 +1,7 @@
+(export id
+  (fn [x]
+    x))
+
+(export testmap {:keys [1 2 34 0xabc]})
+
+"łβ∘"
