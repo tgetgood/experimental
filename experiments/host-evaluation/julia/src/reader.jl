@@ -1,8 +1,11 @@
-module LispReader end
-
 struct BufferedStream
-    stream
+    stream::IO
     buffer::Vector{Char}
+end
+
+mutable struct StringStream
+    stream::String
+    index::UInt
 end
 
 function read1(s::BufferedStream)
@@ -17,74 +20,36 @@ function unread1(s::BufferedStream, c::Char)
     pushfirst!(s.buffer, c)
 end
 
+function read1(s::StringStream)
+    try
+        c = s.stream[s.index]
+        s.index = nextind(s.stream, s.index)
+        return c
+    catch BoundsError
+        throw(EOFError())
+    end
+end
+
+function unread1(s::StringStream, c::Char)
+    j = prevind(s.stream, s.index)
+    @assert s.stream[j] === c "Cannot pushback char that was not in stream"
+    s.index = j
+end
+
+function stream(s::IO)
+    BufferedStream(s, [])
+end
+
+function stream(s::String)
+    StringStream(s, 1)
+end
+
+ts = "łβ∘"
+
 struct ReaderOptions
     until
 end
 
-abstract type Sexp end
-
-abstract type LispMap <: Sexp end
-
-abstract type LispList <: Sexp end
-
-abstract type LispVector <: Sexp end
-
-abstract type LispSet <: Sexp end
-
-struct LispString <: Sexp
-    val::AbstractString
-end
-
-struct LispNumber <: Sexp
-    val::Number
-end
-
-struct ArrayList <: LispList
-    elements::Vector{Sexp}
-end
-
-struct ArrayVector <: LispVector
-    elements::Vector{Sexp}
-end
-
-struct LispMapEntry
-    key::Sexp
-    value::Sexp
-end
-
-struct ArrayMap <: LispMap
-    kvs::Vector{LispMapEntry}
-end
-
-struct Nil <: Sexp end
-nil = Nil()
-
-struct LispKeyword <: Sexp
-    namespace
-    name
-end
-
-struct LispSymbol <: Sexp
-    namespace
-    name
-end
-
-function get(m::LispMap, query::Sexp)
-    get(m, query, nil)
-end
-
-function get(m::ArrayMap, query::Sexp, default::Sexp)
-    for e in m.kvs
-        if e.key === query
-            return e.value
-        end
-    end
-    return default
-end
-
-function get(v::ArrayVector, i::Unsigned)
-    v.elements[i]
-end
 
 ## This will raise an error on EOF. That's normally the right behaviour, but we
 ## might need a softer try-read sort of fn.
@@ -109,7 +74,7 @@ function splitsymbolic(x::String)
     if length(parts) === 1
         return [nil, parts[1]]
     elseif length(parts) > 2
-        throw :bob
+        throw(:bob)
     end
     return [parts[1], parts[2]]
 end
@@ -229,6 +194,22 @@ function lispreader(stream, opts)
     end
 end
 
-function test()
-    lispreader(BufferedStream(stdin, []), ReaderOptions(nothing))
+function lispreader(stream)
+    lispreader(stream, ReaderOptions(nothing))
 end
+
+core = open("../sublang/core.lt")
+fs = stream(core)
+
+"""N.B. This will run forever if `stream` doesn't eventually close"""
+function readall(stream::BufferedStream)
+    forms = []
+    while true
+        try
+            push!(forms, lispreader(stream))
+        catch EOFError
+            return forms
+        end
+    end
+end
+
