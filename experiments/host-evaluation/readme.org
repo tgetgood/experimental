@@ -99,8 +99,46 @@ working in clojure.
   - C FFI to llvm
   - bitcode generation
   - jit compile and replace interpreted fns with flubs.
+** Julia
+   - [X] reader
+     I basically copied the clojure reader, dropping most of the
+     functionality. But ~200 lines of code and a couple of days is pretty good
+     considering I was both learing the language and the write a reader.
+
+     This doesn't include the week long detour into the new control flow theory
+     I developed.
+   - [X] data structures
+     Well, technically I have data structures. They're copy on write and maps
+     are just alists, so don't count on performance. Sets are not implemented.
+   - [ ] interpreter
+     metacircular all the way. This is about clarity of semantics — as much as I
+     hate that word — more than anything else. And the meaning of a program is
+     indecipherable unless you can see what's happening inside the interpreter.
+   - Resolution of names
+     Is isn't something I had planned as part of the demo, but it's so important
+     to later phases, that I'm thinking of taking a detour to try and bang out a
+     very basic version of it.
+
+     Copied from eval.jl comments:
+
+     Here's a curious scenario: Where do we start with immutable names? I could
+     resolve symbols right at first eval, but is that even soon enough? Maybe
+     they should be resolved a read time.
+
+     I think soething in between is actually what we want. Lambda's don't get
+     evaled recursively when first read, but only when applied. But references
+     should be fixed immediately...
+
+     Possible workaround. Don't allow the user to define symbols at all. Have a
+     special form `export`, `define`, etc. which takes a keyword and a form and
+     interns a symbol pointing to the hash of the given form. This allows us to
+     look up symbols at read time, so long as all forms referred to have been
+     evalled beforehand.
+   - [ ] pretty print?
+     This will make life a lot easier if we do anything non-trivial.
 * Test V2
   Once we have interop up and running:
   - Generate vulkan bindings from xml
   - write simple graphics program (fractal with pan and zoom should be complex
     enough to get a feel for fit).
+  - Implement β and maybe μ.
