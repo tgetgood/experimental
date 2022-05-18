@@ -95,6 +95,7 @@ working in clojure.
   - data structures
     (just vectors and maps to start, copy on write is good enough for a demo).
   - interpreter
+  - Code internment and reference by value.
   - pretty print?
   - C FFI to llvm
   - bitcode generation

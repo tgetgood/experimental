@@ -8,6 +8,8 @@ abstract type LispVector <: Sexp end
 
 abstract type LispSet <: Sexp end
 
+abstract type LispReference <: Sexp end
+
 struct LispString <: Sexp
     val::AbstractString
 end
@@ -72,4 +74,17 @@ end
 
 function get(v::ArrayVector, i::Unsigned)
     v.elements[i]
+end
+
+function head(f::LispList)
+    f.elements[1]
+end
+
+function tail(f::LispList)
+    ArrayList(f.elements[2:end])
+end
+
+import Base.map
+function map(f, l::LispList)
+    ArrayList(map(f, l.elements))
 end

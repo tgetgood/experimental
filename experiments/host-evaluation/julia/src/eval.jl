@@ -41,3 +41,13 @@ end
 ### interns a symbol pointing to the hash of the given form. This allows us to
 ### look up symbols at read time, so long as all forms referred to have been
 ### evalled beforehand.
+###
+### Or this means that symbols will only exist in unread text source. That means
+### that the source text has to define the hash the symbol points to if it's
+### going to use the symbol. That's a pretty elegant solution in the end.
+function eval(f::LispList)
+    apply(head(f), map(eval, tail(f)))
+end
+
+function apply(f::LispReference, t::ArrayList)
+end
