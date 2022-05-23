@@ -89,7 +89,7 @@ function readsymbol(x)
     LispSymbol(p[1], p[2])
 end
 
-function interpret(x::String)
+function interpret(x::String, context::Context)
     if startswith(x, ':')
         return readkeyword(x)
     end
@@ -98,13 +98,18 @@ function interpret(x::String)
     catch ArgumentError
     end
 
-    return readsymbol(x)
+    sym = readsymbol(x)
+    try
+        return resolve(context, sym)
+    catch KeyError
+        return sym
+    end
 end
 
-function readsubforms(stream, until)
+function readsubforms(stream, context, until)
     forms = []
     while true
-        t = lispreader(stream, ReaderOptions(until))
+        t = lispreader(stream, context, ReaderOptions(until))
         if t === nothing
             break
         else
@@ -114,20 +119,20 @@ function readsubforms(stream, until)
     return forms
 end
 
-function readlist(stream, opts)
-    ArrayList(readsubforms(stream, ')'))
+function readlist(stream, context, opts)
+    ArrayList(readsubforms(stream, context, ')'))
 end
 
-function readvector(stream, opts)
-    ArrayVector(readsubforms(stream, ']'))
+function readvector(stream, context, opts)
+    ArrayVector(readsubforms(stream, context, ']'))
 end
 
-function readstring(stream, opts)
+function readstring(stream, context, opts)
     ""
 end
 
-function readmap(stream, opts)
-    elements = readsubforms(stream, '}')
+function readmap(stream, context, opts)
+    elements = readsubforms(stream, context, '}')
     @assert length(elements) % 2 === 0 "a map literal must contain an even number of entries"
 
     entries = []
@@ -139,7 +144,7 @@ end
 
 indirectdispatch = Dict()
 
-function readdispatch(stream, opts)
+function readdispatch(stream, context, opts)
 end
 
 dispatch = Dict(
@@ -172,7 +177,7 @@ function readtoken(stream, opts)
     return out
 end
 
-function lispreader(stream, opts)
+function lispreader(stream, context, opts)
     c = nothing
     try
         c = firstnonwhitespace(stream)
@@ -188,28 +193,27 @@ function lispreader(stream, opts)
 
     if sub === nothing
         unread1(stream, c)
-        return interpret(readtoken(stream, opts))
+        return interpret(readtoken(stream, opts), context)
     else
-        return sub(stream, opts)
+        return sub(stream, context, opts)
     end
 end
 
-function lispreader(stream)
-    lispreader(stream, ReaderOptions(nothing))
+function lispreader(stream, context)
+    lispreader(stream, context, ReaderOptions(nothing))
 end
 
 core = open("../sublang/core.lt")
 fs = stream(core)
 
-"""N.B. This will run forever if `stream` doesn't eventually close"""
-function readall(stream::BufferedStream)
-    forms = []
-    while true
-        try
-            push!(forms, lispreader(stream))
-        catch EOFError
-            return forms
-        end
-    end
-end
-
+# """N.B. This will run forever if `stream` doesn't eventually close"""
+# function readall(stream::BufferedStream)
+#     forms = []
+#     while true
+#         try
+#             push!(forms, lispreader(stream))
+#         catch EOFError
+#             return forms
+#         end
+#     end
+# end

@@ -1,3 +1,5 @@
+import Base.string, Base.hash, Base.==
+
 abstract type Sexp end
 
 abstract type LispMap <: Sexp end
@@ -39,6 +41,8 @@ struct Nil <: Sexp end
 
 nil = Nil()
 
+## TODO: Intern symbols and keywords
+
 struct LispKeyword <: Sexp
     namespace
     name
@@ -47,6 +51,23 @@ end
 struct LispSymbol <: Sexp
     namespace
     name
+end
+
+function string(x::LispSymbol)
+    if x.namespace === nil
+        x.name
+    else
+        x.namespace*"/"*x.name
+    end
+end
+
+function hash(x::LispSymbol)
+    hash(string(x))
+end
+
+function ==(x::LispSymbol, y::LispSymbol)
+    ## Strings are *not* interned in Julia
+    x.namespace == y.namespace && x.name == y.name
 end
 
 ################################################################################

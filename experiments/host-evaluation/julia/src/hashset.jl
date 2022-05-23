@@ -1,26 +1,21 @@
 struct Context
+    hashset
+    symbolmap
 end
 
-struct Λ
-    args::LispVector
-    body::Sexp
+import Base.copy
+
+function copy(c::Context)
+    Context(copy(c.hashset), copy(c.symbolmap))
 end
 
-function λ(form::LispList)
-    # What should sig be? fn? lambda? it shouldn't be a symbol at all. but then
-    # what?
-    #
-    # It should be a ref to interned code. Interned jl code, which makes it a
-    # special form. That's the only difference.
-    #
-    # Our interned forms are like words in forth... I think.
-    #
-    # λ –> HashRef -> code that expects two args and returns something
-    # representing a lambda.
-    return Λ(head(form), head(tail(form)))
+abstract type Ref <: Sexp end
+
+struct FixedHashRef <: Ref
+    hash
 end
 
-function intern(form::Sexp)
+function intern(context::Context, form)
     # Now the question: What do we hash?
     #
     # We can't just hash the text, or whatever the binary format happens to
@@ -44,8 +39,39 @@ function intern(form::Sexp)
     # points to both as the desired whole.
     #
     # How we normalise lambdas is an orthogonal question, is it not?
-    return (hashref, contextref)
+    hashset = context.hashset
+
+    k = FixedHashRef(hash(form))
+    if haskey(hashset, k)
+        if form === hashset[k]
+            return (k, context)
+        else
+            throw("Hash collision in evaluation context. Time to write the hashset.")
+        end
+    else
+        c2 = copy(context)
+        c2.hashset[k] = form
+        return (k, c2)
+    end
 end
 
-function lookup(ref)
+function intern(context::Context, sym::LispSymbol, ref)
+    @assert haskey(context.hashset, ref) "You can't name something that doesn't exist. Not here, anyway."
+
+    c2 = copy(context)
+    c2.symbolmap[sym] = ref
+    return (ref, c2)
+end
+
+function resolve(context::Context, ref::Ref)
+    context.hashset[ref]
+end
+
+function resolve(context::Context, ref::LispSymbol)
+    context.symbolmap[ref]
+end
+
+function hashbytes(f, n::UInt8)
+    @assert n <= 8 "Hashes longer than 8 bytes not currently supported"
+    hash(f) >> ((8 - n) << 3)
 end

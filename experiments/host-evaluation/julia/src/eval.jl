@@ -28,6 +28,10 @@ function eval(s::Any)
     @assert false "Unimplemented"
 end
 
+function eval(s::LispSymbol)
+    @assert false "Unresolved symbol: "*string(s)
+end
+
 ### Here's a curious scenario: Where do we start with immutable names? I could
 ### resolve symbols right at first eval, but is that even soon enough? Maybe
 ### they should be resolved a read time.
@@ -45,9 +49,14 @@ end
 ### Or this means that symbols will only exist in unread text source. That means
 ### that the source text has to define the hash the symbol points to if it's
 ### going to use the symbol. That's a pretty elegant solution in the end.
+
+# Don't eval the elements of tail just yet, leave that up to apply. Technically
+# everything is an M expression at the moment.
 function eval(f::LispList)
-    apply(head(f), map(eval, tail(f)))
+    apply(eval(head(f)), tail(f))
 end
 
-function apply(f::LispReference, t::ArrayList)
+
+function apply(f::typeof(λ), t::ArrayList)
+
 end
