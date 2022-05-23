@@ -1,6 +1,7 @@
 # module Core
 
 include("datastructures.jl")
+include("walk.jl")
 include("hashset.jl")
 include("builtins.jl")
 include("read.jl")
@@ -16,7 +17,6 @@ function barecontext()
 end
 
 form = lispreader(fs, barecontext())
-
-barecontext().symbolmap[LispSymbol(nil, "λ")]
+test = eval(withmeta(form, assoc(emptymap, ck, barecontext()))).content
 
 # end

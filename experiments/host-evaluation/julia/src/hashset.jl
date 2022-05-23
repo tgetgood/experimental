@@ -1,4 +1,4 @@
-struct Context
+struct Context <: Sexp
     hashset
     symbolmap
 end

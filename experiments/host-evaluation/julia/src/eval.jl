@@ -1,5 +1,16 @@
 #### Literal data
 
+ck = LispKeyword(nil, "context")
+
+function eval(f::MetaExpr)
+    context = get(f.metadata, ck)
+    if hasmethod(eval, (typeof(context), typeof(f.content)))
+        eval(get(f.metadata, ck), f.content)
+    else
+        withmeta(eval(f.content), f.metadata)
+    end
+end
+
 function eval(f::LispNumber)
     f
 end
@@ -52,11 +63,27 @@ end
 
 # Don't eval the elements of tail just yet, leave that up to apply. Technically
 # everything is an M expression at the moment.
-function eval(f::LispList)
-    apply(eval(head(f)), tail(f))
+function eval(context, f::LispList)
+    apply(eval(context, head(f)), tail(f))
 end
 
+function eval(context::Context, f::Ref)
+    withmeta(resolve(context, f), assoc(emptymap, ck, context))
+end
 
-function apply(f::typeof(λ), t::ArrayList)
+function eval(f::LispList)
+    println(f)
+    f
+end
 
+################################################################################
+##### Apply
+################################################################################
+
+function apply(f::MetaExpr, args)
+    withmeta(apply(f.content, args), f.metadata)
+end
+
+function apply(f::BuiltinFn, args)
+    f.fn(args)
 end

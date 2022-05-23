@@ -1,4 +1,4 @@
-import Base.string, Base.hash, Base.==
+import Base: string,hash,==,length
 
 abstract type Sexp end
 
@@ -12,6 +12,27 @@ abstract type LispSet <: Sexp end
 
 abstract type LispReference <: Sexp end
 
+struct MetaExpr
+    metadata::Sexp
+    content::Sexp
+end
+
+function withmeta(f, m)
+    MetaExpr(m, f)
+end
+
+# REVIEW: Should metadata be infinitely nestable? or does withmeta just
+# overwrite the metadata?
+#
+# Clojure's with-meta clobbers the metadata (functionally) but that's probably
+# because metadata is a mutable field in the core data types.
+#
+# Let's leave metadata nestable for now, make metadata handlers recursive so
+# that it shouldn't matter, and see what happens.
+#
+# function withmeta(f::MetaExpr, m)
+#     MetaExpr(m, f.content)
+# end
 struct LispString <: Sexp
     val::AbstractString
 end
@@ -24,8 +45,16 @@ struct ArrayList <: LispList
     elements::Vector{Sexp}
 end
 
+function length(x::ArrayList)
+    length(x.elements)
+end
+
 struct ArrayVector <: LispVector
     elements::Vector{Sexp}
+end
+
+function length(x::ArrayVector)
+    length(x.elements)
 end
 
 struct LispMapEntry
@@ -36,6 +65,8 @@ end
 struct ArrayMap <: LispMap
     kvs::Vector{LispMapEntry}
 end
+
+emptymap = ArrayMap([])
 
 struct Nil <: Sexp end
 
@@ -86,14 +117,18 @@ end
 
 function get(m::ArrayMap, query::Sexp, default::Sexp)
     for e in m.kvs
-        if e.key === query
+        if e.key == query
             return e.value
         end
     end
     return default
 end
 
-function get(v::ArrayVector, i::Unsigned)
+function get(v::ArrayVector, i::Int)
+    v.elements[i]
+end
+
+function get(v::ArrayList, i::Int)
     v.elements[i]
 end
 
@@ -108,4 +143,17 @@ end
 import Base.map
 function map(f, l::LispList)
     ArrayList(map(f, l.elements))
+end
+
+function assoc(m::ArrayMap, k, v)
+    kvs = copy(m.kvs)
+
+    for e in kvs
+        if e.key == k
+            e = LispMapEntry(k, v)
+            return ArrayMap(kvs)
+        end
+    end
+    push!(kvs, LispMapEntry(k, v))
+    return ArrayMap(kvs)
 end

@@ -3,22 +3,44 @@ struct Λ <: Sexp
     body::Sexp
 end
 
-function substitute(λ, args)
+function subwalker(subs, x)
+    x
+end
+
+function subwalker(subs, x::LispSymbol)
+    if haskey(subs, x)
+        subs[x]
+    else
+        x
+    end
+end
+
+function substitute(Λ, args)
     ## Automatic currying wouldn't be too hard to add here.
     ## One can see why features creep.
     @assert length(args) === length(Λ.args)
-    :bobsuruncle
+    kvs = []
+    begin
+        for i in range(1, length(args))
+            push!(kvs, get(Λ.args, i) => get(args, i))
+        end
+    end
+
+    subs = Dict(kvs)
+
+    postwalk(x -> subwalker(subs, x), Λ.body)
 end
 
-function apply(f::Λ, args)
+function apply(f::Λ, args::ArrayList)
     eargs = map(eval, args)
 
-    eval(substitute(f, args))
+    eval(substitute(f, eargs))
 end
 
 abstract type Flub <: Sexp end
 
-struct Builtin
+struct BuiltinFn <: Flub
+    fn
 end
 
 function λ(form::LispList)
@@ -36,7 +58,7 @@ function λ(form::LispList)
 end
 
 function internbuiltins(context)
-    (h, c1) = intern(context, λ)
+    (h, c1) = intern(context, BuiltinFn(λ))
     c2 = intern(c1, LispSymbol(nil, "λ"), h)
     LispSymbol(nil, "export")
     return c2
