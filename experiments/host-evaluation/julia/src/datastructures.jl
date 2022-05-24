@@ -12,7 +12,7 @@ abstract type LispSet <: Sexp end
 
 abstract type LispReference <: Sexp end
 
-struct MetaExpr
+struct MetaExpr <: Sexp
     metadata::Sexp
     content::Sexp
 end
@@ -39,6 +39,10 @@ end
 
 struct LispNumber <: Sexp
     val::Number
+end
+
+function string(x::LispNumber)
+    string(x.val)
 end
 
 struct ArrayList <: LispList

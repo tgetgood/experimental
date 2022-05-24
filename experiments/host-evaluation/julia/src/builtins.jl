@@ -31,16 +31,30 @@ function substitute(Λ, args)
     postwalk(x -> subwalker(subs, x), Λ.body)
 end
 
-function apply(f::Λ, args::ArrayList)
-    eargs = map(eval, args)
+function apply(context, f::Λ, args::ArrayList)
+    m = assoc(emptymap, ck, context)
 
-    eval(substitute(f, eargs))
+    eargs = map(x -> eval(withmeta(x, m)), args)
+
+    eval(withmeta(substitute(f, eargs), m))
 end
 
 abstract type Flub <: Sexp end
 
 struct BuiltinFn <: Flub
     fn
+end
+
+function numericval(x::MetaExpr)
+    numericval(x.content)
+end
+
+function numericval(x::LispNumber)
+    x.val
+end
+
+function myplus(x::LispList)
+    LispNumber(reduce(+, map(numericval, x.elements)))
 end
 
 function λ(form::LispList)
@@ -58,8 +72,8 @@ function λ(form::LispList)
 end
 
 function internbuiltins(context)
-    (h, c1) = intern(context, BuiltinFn(λ))
-    c2 = intern(c1, LispSymbol(nil, "λ"), h)
-    LispSymbol(nil, "export")
-    return c2
+    (h, c) = intern(context, BuiltinFn(λ))
+    (_, c) = intern(c, LispSymbol(nil, "λ"), h)
+    (h, c) = intern(c, BuiltinFn(myplus))
+    intern(c, LispSymbol(nil, "+"), h)
 end

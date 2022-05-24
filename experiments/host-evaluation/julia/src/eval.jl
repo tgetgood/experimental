@@ -64,16 +64,11 @@ end
 # Don't eval the elements of tail just yet, leave that up to apply. Technically
 # everything is an M expression at the moment.
 function eval(context, f::LispList)
-    apply(eval(context, head(f)), tail(f))
+    apply(eval(withmeta(head(f), assoc(emptymap, ck, context))), tail(f))
 end
 
 function eval(context::Context, f::Ref)
     withmeta(resolve(context, f), assoc(emptymap, ck, context))
-end
-
-function eval(f::LispList)
-    println(f)
-    f
 end
 
 ################################################################################
@@ -81,7 +76,11 @@ end
 ################################################################################
 
 function apply(f::MetaExpr, args)
-    withmeta(apply(f.content, args), f.metadata)
+    if hasmethod(apply, (Context, typeof(f.content), typeof(args)))
+        apply(get(f.metadata, ck), f.content, args)
+    else
+        withmeta(apply(f.content, args), f.metadata)
+    end
 end
 
 function apply(f::BuiltinFn, args)
