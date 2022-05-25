@@ -47,7 +47,7 @@ end
 ### resolve symbols right at first eval, but is that even soon enough? Maybe
 ### they should be resolved a read time.
 ###
-### I think soething in between is actually what we want. Lambda's don't get
+### I think something in between is actually what we want. Lambda's don't get
 ### evaled recursively when first read, but only when applied. But references
 ### should be fixed immediately...
 ###

@@ -1,4 +1,10 @@
-struct Λ <: Sexp
+abstract type Flub <: Sexp end
+
+struct BuiltinFn <: Flub
+    fn
+end
+
+struct Λ <: Flub
     args::LispVector
     body::Sexp
 end
@@ -39,12 +45,6 @@ function apply(context, f::Λ, args::ArrayList)
     eval(withmeta(substitute(f, eargs), m))
 end
 
-abstract type Flub <: Sexp end
-
-struct BuiltinFn <: Flub
-    fn
-end
-
 function numericval(x::MetaExpr)
     numericval(x.content)
 end
@@ -71,9 +71,29 @@ function λ(form::LispList)
     return Λ(head(form), head(tail(form)))
 end
 
+struct Def <: Flub
+    name
+    form
+end
+
+function def(args)
+    name = head(args)
+    form = head(tail(args))
+
+    Def(name, form)
+end
+
+function apply(context, f::Def, args)
+    (h, c) = intern(context, f.form)
+
+
 function internbuiltins(context)
     (h, c) = intern(context, BuiltinFn(λ))
     (_, c) = intern(c, LispSymbol(nil, "λ"), h)
     (h, c) = intern(c, BuiltinFn(myplus))
-    intern(c, LispSymbol(nil, "+"), h)
+    (h, c) = intern(c, LispSymbol(nil, "+"), h)
+    (h, c) = intern(c, BuiltinFn(def))
+    (h, c) = intern(c, LispSymbol(nil, "def"), h)
+
+    return (h, c)
 end

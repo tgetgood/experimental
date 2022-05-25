@@ -17,6 +17,5 @@ function barecontext()
 end
 
 form = lispreader(fs, barecontext())
-println(string(eval(withmeta(form, assoc(emptymap, ck, barecontext()))).content))
 
 # end
