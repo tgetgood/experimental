@@ -85,6 +85,7 @@ end
 
 function apply(context, f::Def, args)
     (h, c) = intern(context, f.form)
+end
 
 
 function internbuiltins(context)

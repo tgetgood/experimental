@@ -1,4 +1,7 @@
-import Base: string,hash,==,length
+module DataStrutures
+
+
+include("DataStructures/vector.jl")
 
 abstract type Sexp end
 
@@ -149,6 +152,12 @@ function map(f, l::LispList)
     ArrayList(map(f, l.elements))
 end
 
+## REVIEW: I'm pretty sure copy below only copies the vector and references, and
+## doesn't recursively copy the elements. That's not at all what we want.
+#
+# Do I need to implement hamts up front? That will probably save me a bunch of
+# work as I go.
+
 function assoc(m::ArrayMap, k, v)
     kvs = copy(m.kvs)
 
@@ -160,4 +169,6 @@ function assoc(m::ArrayMap, k, v)
     end
     push!(kvs, LispMapEntry(k, v))
     return ArrayMap(kvs)
+end
+
 end
