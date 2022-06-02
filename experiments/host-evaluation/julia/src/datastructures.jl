@@ -1,7 +1,7 @@
-module DataStrutures
+# module DataStrutures
 
 
-include("DataStructures/vector.jl")
+# include("DataStructures/vector.jl")
 
 abstract type Sexp end
 
@@ -171,4 +171,4 @@ function assoc(m::ArrayMap, k, v)
     return ArrayMap(kvs)
 end
 
-end
+# end

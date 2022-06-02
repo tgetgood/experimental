@@ -5,17 +5,15 @@ abstract type PersistentVector <: Vector end
 nodelength = 32
 
 struct VectorLeaf <: PersistentVector
-    last::UInt8
-    elements::Base.Vector
+    elements::Base.Vector{Any}
 end
 
 struct VectorNode <: PersistentVector
-    last::UInt8
-    elements::Base.Vector
+    elements::Base.Vector{Any}
     count::Unsigned
 end
 
-emptyvector = PersistentVector(0, VectorLeaf(0, []))
+emptyvector = VectorLeaf([])
 
 function empty(x::PersistentVector)
     emptyvector
@@ -26,7 +24,7 @@ function empty(x::typeof(Vector))
 end
 
 function count(v::VectorLeaf)
-    v.last
+    length(v.elements)
 end
 
 function count(v::VectorNode)
@@ -34,11 +32,11 @@ function count(v::VectorNode)
 end
 
 function fullp(v::VectorLeaf)
-    v.last == nodelength
+    count(v) == nodelength
 end
 
 function fullp(v::VectorNode)
-    v.last == nodelength && fullp(v.elements[v.last])
+    count(v) == nodelength && fullp(v.elements[end])
 end
 
 function emptyp(x::PersistentVector)
@@ -47,58 +45,75 @@ end
 
 function conj(v::VectorLeaf, x)
     if fullp(v)
-        return VectorNode(2, [v, VectorLeaf(1, [x])], nodelength + 1)
+        return VectorNode([v, VectorLeaf([x])], nodelength + 1)
     else
         e = copy(v.elements)
         push!(e, x)
-        return VectorLeaf(v.last + 1, e)
+        return VectorLeaf(e)
     end
 end
 
 function conj(v::VectorNode, x)
     if fullp(v)
-        return VectorNode(2, [v, VectorLeaf(1, [x])], v.total + 1)
+        return VectorNode([v, VectorLeaf([x])], v.total + 1)
     end
 
     elements = copy(v.elements)
-    tail = elements[v.last]
+    tail = v.elements[end]
 
     if fullp(tail)
-        push!(elements, VectorLeaf(1, [x]))
-        return VectorNode(v.last + 1, elements)
+        push!(elements, VectorLeaf([x]))
+        return VectorNode(elements, v.count + 1)
     else
         newtail = conj(tail, x)
-        elements[v.last] = newtail
-        return VectorNode(v.last, elements)
+        elements[end] = newtail
+        return VectorNode(elements, v.count + 1)
     end
 end
 
-function conj(v::PersistentVector, x)
-    PersistentVector(v.length + 1, conj(v.root, x))
+function last(v::VectorLeaf)
+    v.elements[end]
 end
 
-function first(v::PersistentVector)
-    if emptyp(v)
-        nothing
-    else
-        first(v.root)
-    end
+function last(v::VectorNode)
+    last(v.elements[end])
 end
 
 function first(v::VectorLeaf)
-    if v.last > 0
-        v.elements[1]
+    if count(v) > 0
+        v.elements[begin]
     else
         nothing
     end
 end
 
 function first(v::VectorNode)
-    if v.last > 0
-        first(v.elements[1])
+    if count(v) > 0
+        first(v.elements[begin])
     else
         nothing
     end
 end
 
-function nth(v::PersistentVector, n::Unsigned)
+function nth(v::VectorLeaf, n::Int)
+    if n > count(v)
+        throw("Index out of bounds")
+    else
+        return v.elements[n]
+    end
+end
+
+function nth(v::VectorNode, n::Int)
+    if n > count(v)
+        throw("Index out of bounds")
+    else
+        # FIXME: This should be binary search, but I'm lazy
+        for e in v.elements
+            if count(e) >= n
+                return nth(e, n)
+            else
+                n = n - count(e)
+            end
+        end
+    end
+end
