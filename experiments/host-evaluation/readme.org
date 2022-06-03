@@ -91,9 +91,27 @@ working in clojure.
   the idea.
 
   So
-  - reader
+  - Basic Abstractions
+    - conj/disj
+    - get/nth
+    - assoc/dissoc
+    - count
+    - sequences
+      Sequences turn out to be surprisingly important.
+
+      A sequence is just an abstraction that has (poosibly) a next thing and (possibly)
+      more things. Sequences can be eager or lazy, they can be chunked, they can
+      be async. So channels / streams are going to fall into the sequence
+      abstraction just like the in memory collections.
+
+      Also important: a seq doesn't have to fit in memory. Lazy seqs are an
+      obvious way to do this, but distributed seqs are also seqs and allowing
+      them to be chunked async should make it trivial to operate on them as if
+      they were available locally (and manipulate them without ever fetching
+      them locally).
   - data structures
     (just vectors and maps to start, copy on write is good enough for a demo).
+  - reader
   - interpreter
   - Code internment and reference by value.
   - pretty print?

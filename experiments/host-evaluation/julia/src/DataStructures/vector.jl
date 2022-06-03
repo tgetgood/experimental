@@ -2,8 +2,6 @@ abstract type Vector end
 
 abstract type PersistentVector <: Vector end
 
-nodelength = 32
-
 struct VectorLeaf <: PersistentVector
     elements::Base.Vector{Any}
 end
@@ -16,10 +14,6 @@ end
 emptyvector = VectorLeaf([])
 
 function empty(x::PersistentVector)
-    emptyvector
-end
-
-function empty(x::typeof(Vector))
     emptyvector
 end
 
@@ -116,4 +110,8 @@ function nth(v::VectorNode, n::Int)
             end
         end
     end
+end
+
+function get(v::Vector, i)
+    nth(v, i)
 end

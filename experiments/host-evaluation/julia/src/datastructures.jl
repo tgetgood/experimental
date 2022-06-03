@@ -100,7 +100,7 @@ function string(x::LispSymbol)
 end
 
 function hash(x::LispSymbol)
-    hash(string(x))
+   hash(string(x))
 end
 
 function ==(x::LispSymbol, y::LispSymbol)
