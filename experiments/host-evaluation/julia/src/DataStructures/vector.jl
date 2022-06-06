@@ -49,7 +49,7 @@ end
 
 function conj(v::VectorNode, x)
     if fullp(v)
-        return VectorNode([v, VectorLeaf([x])], v.total + 1)
+        return VectorNode([v, VectorLeaf([x])], v.count + 1)
     end
 
     elements = copy(v.elements)
@@ -112,6 +112,38 @@ function nth(v::VectorNode, n::Int)
     end
 end
 
+# FIXME: This method of iterating a vector doesn't allow the head to be
+# collected and so will use more memory than expected when used in idiomatic
+# lisp fashion. That should be fixed.
+struct VectorSeq
+    v
+    i
+end
+
+function rest(v::Vector)
+    VectorSeq(v, 2)
+end
+
+function first(v::VectorSeq)
+    nth(v.v, v.i)
+end
+
+function rest(v::VectorSeq)
+    VectorSeq(v.v, v.i + 1)
+end
+
 function get(v::Vector, i)
     nth(v, i)
+end
+
+function reduce(f, init::Vector, coll::VectorLeaf)
+    Base.reduce(f, coll.elements, init=init)
+end
+
+function reduce(f, init::Vector, coll::VectorNode)
+    Base.reduce(
+        (acc, x) -> Base.reduce(f, x, init=acc),
+        coll.elements,
+        init=init
+    )
 end
