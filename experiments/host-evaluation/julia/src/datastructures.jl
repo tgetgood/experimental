@@ -1,8 +1,5 @@
 # module DataStrutures
 
-
-# include("DataStructures/vector.jl")
-
 abstract type Sexp end
 
 abstract type LispMap <: Sexp end
@@ -107,68 +104,3 @@ function ==(x::LispSymbol, y::LispSymbol)
     ## Strings are *not* interned in Julia
     x.namespace == y.namespace && x.name == y.name
 end
-
-################################################################################
-##### Operations on structures
-##
-## Question: How do we enforce protocols? Do we need to wtih CLOS style
-## overloading?
-################################################################################
-
-# TODO: Implement conj and constructors. Literal maps should not be able to have
-# duplicate keys.
-
-function get(m::LispMap, query::Sexp)
-    get(m, query, nil)
-end
-
-function get(m::ArrayMap, query::Sexp, default::Sexp)
-    for e in m.kvs
-        if e.key == query
-            return e.value
-        end
-    end
-    return default
-end
-
-function get(v::ArrayVector, i::Int)
-    v.elements[i]
-end
-
-function get(v::ArrayList, i::Int)
-    v.elements[i]
-end
-
-function head(f::LispList)
-    f.elements[1]
-end
-
-function tail(f::LispList)
-    ArrayList(f.elements[2:end])
-end
-
-import Base.map
-function map(f, l::LispList)
-    ArrayList(map(f, l.elements))
-end
-
-## REVIEW: I'm pretty sure copy below only copies the vector and references, and
-## doesn't recursively copy the elements. That's not at all what we want.
-#
-# Do I need to implement hamts up front? That will probably save me a bunch of
-# work as I go.
-
-function assoc(m::ArrayMap, k, v)
-    kvs = copy(m.kvs)
-
-    for e in kvs
-        if e.key == k
-            e = LispMapEntry(k, v)
-            return ArrayMap(kvs)
-        end
-    end
-    push!(kvs, LispMapEntry(k, v))
-    return ArrayMap(kvs)
-end
-
-# end

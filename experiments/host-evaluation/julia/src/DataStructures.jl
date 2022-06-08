@@ -1,4 +1,4 @@
-# module DataStructures
+module DataStructures
 
 import Base: string,hash,==,length
 
@@ -11,4 +11,5 @@ include("./DataStructures/sequential.jl")
 include("./DataStructures/vector.jl")
 include("./DataStructures/map.jl")
 
-# end
+export first, rest, nth, assoc, get, reduce, empty, emptyp, containsp, emptyvector, emptymap, take, drop, into, map, filter, transduce
+end
