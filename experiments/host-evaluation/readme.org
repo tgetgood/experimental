@@ -65,7 +65,7 @@ working in clojure.
    heterogeneous, jit compiled, hosted, the AST is lisp (can I program in the
    ast without learning the surface syntax?) so we get real macros (though
    they're probably unnatural to most people learning julia from the blub world
-   (it's marketed to data science and scientific computing, so fortran to python
+   as it's marketed to data science and scientific computing, so fortran to python
    spectrum.).
 
    I almost feel that I have to implement this in julia just to learn about how

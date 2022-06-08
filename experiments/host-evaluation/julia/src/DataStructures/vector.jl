@@ -33,7 +33,7 @@ function fullp(v::VectorNode)
     count(v) == nodelength && fullp(v.elements[end])
 end
 
-function emptyp(x::PersistentVector)
+function emptyp(x)
     count(x) == 0
 end
 
@@ -89,7 +89,7 @@ function first(v::VectorNode)
     end
 end
 
-function nth(v::VectorLeaf, n::Int)
+function nth(v::VectorLeaf, n)
     if n > count(v)
         throw("Index out of bounds")
     else
@@ -97,7 +97,7 @@ function nth(v::VectorLeaf, n::Int)
     end
 end
 
-function nth(v::VectorNode, n::Int)
+function nth(v::VectorNode, n)
     if n > count(v)
         throw("Index out of bounds")
     else
@@ -112,12 +112,29 @@ function nth(v::VectorNode, n::Int)
     end
 end
 
+function assoc(v::VectorLeaf, i, val)
+    @assert 1 <= i && i <= nodelength "Index out of bounds"
+
+    e = copy(v.elements)
+    e[i] = val
+    return VectorLeaf(e)
+end
+
+function assoc(v::VectorNode, i, val)
+    @assert 1 <= i && i <= count(v) "Index out of bounds"
+
+end
+
 # FIXME: This method of iterating a vector doesn't allow the head to be
 # collected and so will use more memory than expected when used in idiomatic
 # lisp fashion. That should be fixed.
 struct VectorSeq
     v
     i
+end
+
+function count(v::VectorSeq)
+    count(v.v) - v.i + 1
 end
 
 function rest(v::Vector)

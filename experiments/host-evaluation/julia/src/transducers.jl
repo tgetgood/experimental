@@ -54,8 +54,6 @@
 # But this looses composbility which is one of the most valuable aspects of
 # transducers, so we're back to the drawing board.
 
-module Transducers end
-
 ##### Example transducers that should play nicely together
 
 function map(f)
@@ -67,7 +65,7 @@ end
 function filter(p)
     function (emit)
         function (x)
-            if p(x) === true
+            if p(x) == true
                 emit(x)
             else
                 emit()

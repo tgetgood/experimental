@@ -16,14 +16,6 @@ struct PersistentHashMap <: Map
     count::Unsigned
 end
 
-"""Returns the `n`th chunk of `hashbits` bits in hash of `x`"""
-function hashchunk(h, n)
-    # When this starts failing, it means we need an extensible hash algo.
-    @assert 0 < n < 14
-
-    h << ((n - 1) * hashbits) >> (64 - hashbits)
-end
-
 function emptyhashnodef()
     v = emptyvector
     for i in 1:32
@@ -33,6 +25,32 @@ function emptyhashnodef()
 end
 
 emptyhashnode = emptyhashnodef()
+
+struct HashSeq
+    hash
+    current
+end
+
+"""Returns a seq of chunks of `hashbits` bits.
+Should be an infinite seq, but in the present implementation runs out after 64
+bits."""
+function hashseq(x)
+    HashSeq(hash(x), 1)
+end
+
+function first(s::HashSeq)
+    if s.current > 14
+        # We could return nothing, but that will just lead to an error when it's
+        # used which will be hard to debug unless I remember this...
+        throw("FIXME: hash streams not implemented")
+    else
+        s.hash << ((s.current - 1) * hashbits) >> (64 - hashbits)
+    end
+end
+
+function rest(s::HashSeq)
+    HashSeq(s.hash, s.current + 1)
+end
 
 function empty(m::PersistentArrayMap)
     emptymap
@@ -65,8 +83,8 @@ arraymapsizethreashold = 8
 
 function get(m::PersistentArrayMap, k)
     for e in m.kvs.elements
-        if m.key == k
-            return m.value
+        if e.key == k
+            return e.value
         else
             return nothing
         end
@@ -75,7 +93,7 @@ end
 
 function assoc(m::PersistentArrayMap, k, v)
     if count(m) > arraymapsizethreashold - 1
-        return assoc(tohashmap(m), k, v)
+        return assoc(into(emptyhashnode, m), k, v)
     end
     n = emptyvector
     found = false
@@ -95,7 +113,15 @@ function assoc(m::PersistentArrayMap, k, v)
     return PersistentArrayMap(n)
 end
 
-function nodewalk(node::MapEntry, target, hash, level)
+function first(m::PersistentArrayMap)
+        first(m.kvs)
+end
+
+function rest(m::PersistentArrayMap)
+    rest(m.kvs)
+end
+
+function nodewalk(node::MapEntry, target, hash)
     if node.key == target
         return node.value
     else
@@ -103,25 +129,55 @@ function nodewalk(node::MapEntry, target, hash, level)
     end
 end
 
-function nodewalk(node::PersistentHashMap, target, hash, level)
-    i = hashchunk(hash, level)
+function nodewalk(node::PersistentHashMap, target, hash)
+    # And here I thought I didn't need cardinal indicies...
+    i = first(hash) + 1
     n = get(node.ht, i)
-    if n == nothing || n == undef
+    if n === nothing || n == undef
         nothing
     else
-        nodewalk(n, target, hash, level + 1)
+        nodewalk(n, target, rest(hash))
     end
 end
 
 function get(m::PersistentHashMap, k)
-    nodewalk(m, k, hash(k), 1)
+    nodewalk(m, k, hashseq(k))
 end
 
-function nodewalkupdate(n::Nothing, entry, hash, level)
+function containsp(m::PersistentHashMap, k)
+    get(m, k) !== nothing
+end
+
+function nodewalkupdate(m::PersistentHashMap, entry, hash, level)
+    i = first(hash) + 1
+    n = assoc(
+        m.ht,
+        i,
+        nodewalkupdate(get(m.ht, i), entry, rest(hash), level + 1)
+    )
+    return PersistentHashMap(n, m.count + 1)
+end
+
+function nodewalkupdate(m::Nothing, entry, hash, level)
     entry
 end
 
+function nodewalkupdate(m::MapEntry, entry, hs, level)
+    mh = drop(level - 1, hashseq(m.key))
+    if first(mh) == first(hs)
+        boom
+    else
+        ht = emptyhashnode.ht
+        ht = assoc(ht, first(mh) + 1, m)
+        ht = assoc(ht, first(hs) + 1, entry)
+        return PersistentHashMap(ht, 2)
+    end
+end
 
 function assoc(m::PersistentHashMap, k, v)
-    nodewalkupdate(m, MapEntry(k, v), hash(k), 1)
+    if get(m, k) == v
+        return m
+    else
+        return nodewalkupdate(m, MapEntry(k, v), hashseq(k), 1)
+    end
 end
