@@ -15,11 +15,11 @@ function transduce(xform, f, to, from)
     reduce(xform(f), to, from)
 end
 
-function into(from, to)
+function into(to, from)
     reduce(conj, from, to)
 end
 
-function into(from, xform, to)
+function into(to, xform, from)
     transduce(xform, conj, to, from)
 end
 

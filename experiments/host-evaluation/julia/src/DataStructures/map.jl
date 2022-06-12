@@ -113,6 +113,16 @@ function assoc(m::PersistentArrayMap, k, v)
     return PersistentArrayMap(n)
 end
 
+function dissoc(m::PersistentArrayMap, k)
+    out = emptymap
+    for e in m.kvs.elements
+        if e.key != k
+            out = conj(out, e)
+        end
+    end
+    return PersitentArrayMap(out)
+end
+
 function first(m::PersistentArrayMap)
         first(m.kvs)
 end
@@ -180,4 +190,17 @@ function assoc(m::PersistentHashMap, k, v)
     else
         return nodewalkupdate(m, MapEntry(k, v), hashseq(k), 1)
     end
+end
+
+function dissoc(m::PersistentHashMap, k)
+    throw("not implemented")
+end
+
+function hashmap(args...)
+    @assert length(args) % 2 == 0
+    out = emptymap
+    for i in 1:div(length(args), 2)
+        out = assoc(out, args[2*i - 1], args[2*i])
+    end
+    return out
 end

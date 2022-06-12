@@ -164,3 +164,7 @@ function reduce(f, init::Vector, coll::VectorNode)
         init=init
     )
 end
+
+function vec(args...)
+    Base.reduce(conj, args, init=emptyvector)
+end

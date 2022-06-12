@@ -7,9 +7,11 @@ hashbits = 5
 nodelength = 2^hashbits
 nil = nothing
 
+include("./DataStructures/values.jl")
 include("./DataStructures/sequential.jl")
 include("./DataStructures/vector.jl")
 include("./DataStructures/map.jl")
 
-export first, rest, nth, assoc, get, reduce, empty, emptyp, containsp, emptyvector, emptymap, take, drop, into, map, filter, transduce
+export first, rest, nth, assoc, dissoc, conj, get, reduce, empty, emptyp, containsp, emptyvector, emptymap, take, drop, into, map, filter, transduce, nil, vec, Keyword, Symbol, transduce, count
+
 end

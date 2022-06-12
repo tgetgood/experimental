@@ -47,3 +47,28 @@ function ==(x::Symbol, y::Symbol)
     ## Strings are *not* interned in Julia
     x.namespace == y.namespace && x.name == y.name
 end
+
+function string(x::Keyword)
+    if x.namespace === nil
+        ":" * x.name
+    else
+        ":" * x.namespace * "/" * x.name
+    end
+end
+
+function hash(x::Keyword)
+    hash(string(x))
+end
+
+function ==(x::Keyword, y::Keyword)
+    x.namespace == y.namespace && x.name == y.name
+end
+
+# TODO: Intern keywords.
+function keyword(name)
+    Keyword(nil, name)
+end
+
+function keyword(ns, name)
+    Keyword(ns, name)
+end
