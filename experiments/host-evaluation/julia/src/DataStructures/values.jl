@@ -72,3 +72,15 @@ end
 function keyword(ns, name)
     Keyword(ns, name)
 end
+
+function name(x::Keyword)
+    x.name
+end
+
+function name(x::Symbol)
+    x.name
+end
+
+function name(x::String)
+    x
+end

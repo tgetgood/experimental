@@ -22,7 +22,7 @@ export  emptyvector, nth, vec
 export emptymap, assoc, dissoc, containsp, hashmap, merge
 
 # Generic
-export conj, get, count, empty, emptyp, nil, keyword, symbol
+export conj, get, count, empty, emptyp, nil, keyword, symbol, name
 
 # Types
 export Keyword, Symbol, Map, Vector, MapEntry
