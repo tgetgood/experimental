@@ -168,3 +168,7 @@ end
 function vec(args...)
     Base.reduce(conj, args, init=emptyvector)
 end
+
+function string(v::Vector)
+    "[" * transduce(interpose(" ") ∘ map(string), *, "", v) * "]"
+end

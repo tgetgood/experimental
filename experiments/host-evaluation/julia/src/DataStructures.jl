@@ -12,6 +12,19 @@ include("./DataStructures/sequential.jl")
 include("./DataStructures/vector.jl")
 include("./DataStructures/map.jl")
 
-export first, rest, nth, assoc, dissoc, conj, get, reduce, empty, emptyp, containsp, emptyvector, emptymap, take, drop, into, map, filter, transduce, nil, vec, Keyword, Symbol, transduce, count
+# Sequential
+export first, rest, take, drop, reduce, transduce, into, map, filter, interpose
+
+# Vectors
+export  emptyvector, nth, vec
+
+# Maps
+export emptymap, assoc, dissoc, containsp, hashmap, merge
+
+# Generic
+export conj, get, count, empty, emptyp, nil, keyword, symbol
+
+# Types
+export Keyword, Symbol, Map, Vector, MapEntry
 
 end

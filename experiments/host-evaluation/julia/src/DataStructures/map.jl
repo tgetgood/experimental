@@ -204,3 +204,17 @@ function hashmap(args...)
     end
     return out
 end
+
+function merge(x::Map, y::Map)
+    into(x, y)
+end
+
+function string(m::Map)
+    inner = transduce(
+        map(x -> string(x.key) * " " * string(x.value)) ∘ interpose(", "),
+        *,
+        "",
+        m
+    )
+    return "{" * inner * "}"
+end

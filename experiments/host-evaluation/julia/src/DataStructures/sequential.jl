@@ -12,11 +12,13 @@ function reduce(f, init, coll)
 end
 
 function transduce(xform, f, to, from)
-    reduce(xform(f), to, from)
+    g = xform(f)
+    # Don't forget to flush state after input terminates
+    g(reduce(g, to, from))
 end
 
 function into(to, from)
-    reduce(conj, from, to)
+    reduce(conj, to, from)
 end
 
 function into(to, xform, from)
@@ -44,6 +46,14 @@ function take(n, coll)
         end
     end
     return out
+end
+
+function conj()
+    vec()
+end
+
+function conj(x)
+    x
 end
 
 function map(f)
@@ -77,5 +87,34 @@ function filter(p)
             end
         end
         inner
+    end
+end
+
+function interpose(delim)
+    function(emit)
+        lag = nothing
+        function inner()
+            emit()
+        end
+        function inner(res)
+            if lag !== nothing
+                t = lag
+                lag = nothing
+                emit(res, t)
+            else
+                emit(res)
+            end
+        end
+        function inner(res, next)
+            if lag === nothing
+                lag = next
+                return emit(res)
+            else
+                t = lag
+                lag = next
+                return emit(emit(res, t), delim)
+            end
+        end
+        return inner
     end
 end
