@@ -33,6 +33,7 @@ function fullp(v::VectorNode)
     count(v) == nodelength && fullp(v.elements[end])
 end
 
+""" Returns `true` iff the collection `x` contains no elements. """
 function emptyp(x)
     count(x) == 0
 end
