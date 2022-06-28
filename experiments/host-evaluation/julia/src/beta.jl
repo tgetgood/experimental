@@ -4,10 +4,21 @@ import Base: string
 
 import Main.DataStructures: vec, map, nil, assoc, emptymap, hashmap, MapEntry, Map, into, first, rest, keyword, transduce, conj, reduce, merge, Keyword, name, empty, Vector, emptyvector, count
 
+state = keyword("state")
+in    = keyword("in")
+out   = keyword("out")
+
 struct Beta
     ins
     outs
     lambda
+end
+
+# In order to be able to link up βs into a graph, we need to know what the in
+# and out channels are right now. There's nothing stopping us from replacing a β
+# with a new one which can emit to more places, but that's a new entity.
+function beta(in, out, body)
+    Beta(in, out, body)
 end
 
 function string(x::Beta)
@@ -17,6 +28,20 @@ end
 struct Network
     βs
     wires
+end
+
+function network(n::Keyword, β::Beta)
+    Network(hashmap(n, β), vec())
+end
+
+function ln(body)
+    Network(
+        hashmap(
+            keyword("main"),
+            beta(vec(in), vec(out), e -> x -> e(reduce(conj, vec(out), body(get(x, in)))))
+        ),
+    vec()
+    )
 end
 
 emptynetwork = Network(emptymap, emptyvector)
@@ -34,6 +59,10 @@ struct Source
     seq
 end
 
+function string(x::Source)
+    "#Source"*string(hashmap(keyword("ch"), x.out, keyword("vals"), x.seq))
+end
+
 function source(out, seq::Vector)
     Source(out, seq)
 end
@@ -43,25 +72,8 @@ struct Sink
     body
 end
 
-state = keyword("state")
-in    = keyword("in")
-out   = keyword("out")
-
-# In order to be able to link up βs into a graph, we need to know what the in
-# and out channels are right now. There's nothing stopping us from replacing a β
-# with a new one which can emit to more places, but that's a new entity.
-function beta(in, out, body)
-    Beta(in, out, body)
-end
-
 function βmap(λ)
-    function inner(e)
-        function(x)
-            e(out, λ(get(x, in)))
-        end
-    end
-
-    Beta(vec(in), vec(out), inner)
+    ln(e -> x -> e(λ(x)))
 end
 
 βid = βmap(identity)
@@ -97,25 +109,29 @@ function extendnamespace(x::MapEntry)
     extendnamespace(x.value, name(x.key))
 end
 
-function mergenetworks(a::Network, b::Network)
+function mergenetworks1(a::Network, b::Network)
     Network(merge(a.βs, b.βs), into(a.wires, b.wires))
 end
 
-function mergenetworks(x::Network)
+function mergenetworks1(x::Network)
     x
 end
 
-function mergenetworks()
+function mergenetworks1()
     emptynetwork
 end
 
 function mergenetworks(netmap::Map)
-    transduce(map(extendnamespace), mergenetworks, emptynetwork, netmap)
+    transduce(map(extendnamespace), mergenetworks1, emptynetwork, netmap)
 end
 
 function wire(n, newwire)
     Network(n.βs, conj(n.wires, newwire))
 end
+
+################################################################################
+# Simple Networks (transducer analogues)
+################################################################################
 
 function pbody(n)
     function(e)
@@ -124,9 +140,9 @@ function pbody(n)
             x = get(inputs, in)
             s2 = push!(copy(s), copy(x))
             if length(s2) === n
-                e((out, s2), (state, []))
+                e(vec(out, s2), vec(state, []))
             else
-                e((state, s2))
+                e(vec(state, s2))
             end
         end
     end
@@ -192,16 +208,92 @@ function interpose(delim)
     )
 end
 
+dup = ln(e -> x -> e(x, x))
+
+
+function βfilter(p)
+    function inner(x)
+        if p(x)
+            e(x)
+        end
+    end
+    ln(inner)
+end
+
+function append(xs)
+    function inner(x)
+        # only does something at end of input stream
+        if x === nil
+            e(xs)
+        end
+    end
+    ln(inner)
+end
+
+function prepend(xs)
+    function inner(e)
+        function(x)
+            if get(x, state) == keyword("uninitialised")
+                e(reduce(conj, vec(out), xs), vec(state, "finished"))
+            end
+        end
+    end
+
+    Network(
+        hashmap(
+            keyword("main"), beta(vec(in, state), vec(out, state), inner),
+            keyword("init-state"), source(out, vec(keyword("uninitialised")))
+        ),
+        vec(
+            vec(keyword("init-state", "out"), keyword("main", "state"))
+        )
+    )
+end
+
+##### Getting data in and out of networks
+
+# Good question...
+function βtransduce(n)
+end
+
 ################################################################################
 # Example Networks
 ################################################################################
 
+"""Composition is now a matter not just of f and g, but of connecting the
+various outputs of one to the various inputs of the other (and perhaps vice
+versa)."""
+# REVIEW: This has some of the character of the ugly compositions in
+# multivariate calculus. Is that just asuperficial similarity?
+#
+#####
+# Networks must be named before they can be merged because it is assumed that
+# different instances of the same β are *different* and thus cannot be
+# unified. In fact, nothing can be unified, so really we build a tree of named
+# networks.
+#
+# if we represent a network as a map with 2 keys, :networks, and :wires, where
+# :networks is a map from name (keyword) to network, then we don't actually have
+# to merge the networks, but can simply walk the tree.
+#
+# I think that will massively simplify the language and runtime. The tree is
+# very much akin to how the runtime is intended to isolate execution, so that's
+# promising.
+#####
+function compose(name1, net1, name2, net2, wires)
+    hashmap(
+        keyword("networks"), hashmap(name1, net1, name2, net2),
+        keyword("wires"), wires
+    )
+end
+
+tx1 = compose(
+    keyword("prepend"), prepend(vec("bob", "is", 42)),
+    keyword("dup"), dup,
+    vec(vec(keyword("prepend.main", "out"), keyword("dup.main", "in")))
+)
 
 
 ################################################################################
 # Runtime
 ################################################################################
-
-
-
-# end
