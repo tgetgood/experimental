@@ -13,7 +13,7 @@ include("./DataStructures/vector.jl")
 include("./DataStructures/map.jl")
 
 # Sequential
-export first, rest, take, drop, reduce, transduce, into, map, filter, interpose
+export first, rest, take, drop, reduce, transduce, into, map, filter, interpose, dup
 
 # Vectors
 export  emptyvector, nth, vec

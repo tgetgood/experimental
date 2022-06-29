@@ -118,3 +118,16 @@ function interpose(delim)
         return inner
     end
 end
+
+function dup(emit)
+    function inner()
+        emit()
+    end
+    function inner(acc)
+        emit(acc)
+    end
+    function inner(acc, next)
+        emit(emit(acc, next), next)
+    end
+    return inner
+end

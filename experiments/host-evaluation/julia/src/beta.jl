@@ -72,6 +72,11 @@ struct Sink
     body
 end
 
+function collector()
+    Sink(in, nil)
+end
+
+
 function βmap(λ)
     ln(e -> x -> e(λ(x)))
 end
@@ -280,28 +285,54 @@ versa)."""
 # very much akin to how the runtime is intended to isolate execution, so that's
 # promising.
 #####
-function compose(name1, net1, name2, net2, wires)
+function compose(netmap, wires)
     hashmap(
-        keyword("networks"), hashmap(name1, net1, name2, net2),
+        keyword("networks"), netmap,
         keyword("wires"), wires
     )
 end
 
 tx1 = compose(
-    keyword("left"),
-    compose(
-        keyword("prepend"), prepend(vec(1,2,3)),
-        keyword("dup"), dup,
-        vec(vec(keyword("prepend.main", "out"), keyword("dup.main", "in")))
+    hashmap(
+        keyword("left"),
+        compose(
+            hashmap(
+                keyword("prepend"), prepend(vec(1,2,3)),
+                keyword("dup"), dup
+            ),
+            vec(vec(keyword("prepend.main", "out"), keyword("dup.main", "in")))
+        ),
+        keyword("append"), append(vec(7,8,9))
     ),
-    keyword("append"), append(vec(7,8,9)),
     vec(vec(keyword("left.dup.main", "out"), keyword("append.main", "in")))
 )
 
+function transduce(net, in, out, to, from)
+    ret = collector()
+    inet = compose(
+        hashmap(
+            keyword("to"), prepend(to),
+            keyword("xform"), net,
+            keyword("output"), ret,
+            keyword("input"), source(out, from)
+        ),
+        vec(
+            vec(keyword("to.main", "out"), keyword("output", "in")),
+            vec(keyword("input", "out"), extendnamespace(in, "xform")),
+            vec(extendnamespace(out, "xform"), keyword("to.main", "in"))
+        )
+    )
+    run(inet)
+    collect(collector)
+end
 
 
 # transduce(prepend([1,2,3]) ∘ dup ∘ append([7,8,9]), conj, [0], [4,5,6])
-# should return [1,1,2,2,3,3,0,0,4,4,5,5,6,6,7,8,9]
+# should return [0,1,1,2,2,3,3,4,4,5,5,6,6,7,8,9]
+#
+# Can these networks express the `to` collection? `into` will be `prepend(to)`
+# applied to a source. That seems fine, the inefficiencies of reemitting the
+# collection element by element aside.
 
 ################################################################################
 # Runtime
