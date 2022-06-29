@@ -288,11 +288,20 @@ function compose(name1, net1, name2, net2, wires)
 end
 
 tx1 = compose(
-    keyword("prepend"), prepend(vec("bob", "is", 42)),
-    keyword("dup"), dup,
-    vec(vec(keyword("prepend.main", "out"), keyword("dup.main", "in")))
+    keyword("left"),
+    compose(
+        keyword("prepend"), prepend(vec(1,2,3)),
+        keyword("dup"), dup,
+        vec(vec(keyword("prepend.main", "out"), keyword("dup.main", "in")))
+    ),
+    keyword("append"), append(vec(7,8,9)),
+    vec(vec(keyword("left.dup.main", "out"), keyword("append.main", "in")))
 )
 
+
+
+# transduce(prepend([1,2,3]) ∘ dup ∘ append([7,8,9]), conj, [0], [4,5,6])
+# should return [1,1,2,2,3,3,0,0,4,4,5,5,6,6,7,8,9]
 
 ################################################################################
 # Runtime
