@@ -269,7 +269,7 @@ end
 various outputs of one to the various inputs of the other (and perhaps vice
 versa)."""
 # REVIEW: This has some of the character of the ugly compositions in
-# multivariate calculus. Is that just asuperficial similarity?
+# multivariate calculus. Is that just a superficial similarity?
 #
 #####
 # Networks must be named before they can be merged because it is assumed that
@@ -294,20 +294,22 @@ end
 
 tx1 = compose(
     hashmap(
-        keyword("left"),
-        compose(
-            hashmap(
-                keyword("prepend"), prepend(vec(1,2,3)),
-                keyword("dup"), dup
-            ),
-            vec(vec(keyword("prepend.main", "out"), keyword("dup.main", "in")))
-        ),
+        keyword("prepend"), prepend(vec(1,2,3)),
+        keyword("dup"), dup
         keyword("append"), append(vec(7,8,9))
     ),
-    vec(vec(keyword("left.dup.main", "out"), keyword("append.main", "in")))
+    vec(
+        vec(keyword("prepend.main", "out"), keyword("dup.main", "in")),
+        vec(keyword("dup.main", "out"), keyword("append.main", "in"))
+    )
 )
 
-function transduce(net, in, out, to, from)
+# appends the output of `net` to the `to` stream.
+# `net` must be a linear transducer for this to make sense. That means that
+# there is only one "external" input and one "external" output.
+# <net, in, out> is a triple. It's a mode of interpretation of the network. A
+# sort of partial application, really.
+function into(net, in, out, to, from)
     ret = collector()
     inet = compose(
         hashmap(
