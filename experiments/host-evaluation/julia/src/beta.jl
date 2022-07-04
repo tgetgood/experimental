@@ -295,7 +295,7 @@ end
 tx1 = compose(
     hashmap(
         keyword("prepend"), prepend(vec(1,2,3)),
-        keyword("dup"), dup
+        keyword("dup"), dup,
         keyword("append"), append(vec(7,8,9))
     ),
     vec(
@@ -336,6 +336,65 @@ end
 # applied to a source. That seems fine, the inefficiencies of reemitting the
 # collection element by element aside.
 
+# Newfangled API
+# The idea of exposed wires is conventional. Is there any advantage to encoding
+# the current convention into the API? probably not. We can just as easily
+# create an "exposed" function which figures out what we would have encoded in
+# the data format.
+
 ################################################################################
 # Runtime
+#
+# Considerations:
+#
+# Starvation is a big one. The runtime needs to impose fairness, in the same
+# sense as an operation system does. Without that, a couple of spammy βs can
+# overwhelm the system easily.
+#
+# Backpressure is another. Queues cannot grow indefinitely, and even if they
+# could, progress will grind to a halt as the message queues grow since we can
+# only run a fixed number of β computations in parallel. Is that true? If the
+# number of β nodes in the network is fixed, queue length shouldn't effect
+# progress, if you define progress as number of messages popped per time
+# interval.
+#
+# Basic algorithm:
+#
+# Sort messages by some fairness criterion into a single queue. Have a
+# threadpool pinned to the number of cores available, each thread running an
+# identical process. When a thread is free, it takes the first message on the
+# queue, and looks at its target. If the target is currently executing, put the
+# message back and look at the next one. Otherwise apply the message to its
+# target. If the target is ready to run, run it and put all output messages into
+# the queue. If the target it not ready, pin the message to it (how?) and go
+# back to the next message in the central queue.
+#
+# Make sure the central queue is threadsafe and the sorting mechanism scales
+# well.
+
+# To initialise a network, start with an empty queue, walk the network for all
+# sources and enqueue their contents.
+#
+# Nope, that won't work. Sources can be infinite. Even when finite, sources may
+# not have any messages at the moment, but will later.
+#
+# Variation:
+#
+# Queue of all message producers which have messages ready. This includes
+# sources and βs which have emitted. If a β emits to multiple channels, then
+# those are separate entries on the queue.
+#
+# The same algorithm applies, but we iterate over channels instead of
+# messages. If one of the output channels of a β has emitted and is waiting for
+# that message to be processed, then that β counts as executing for the purposes
+# of the previous algorithm.
+#
+# This provides us with both a lazy read and a backpressure mechanism in one. A
+# β cannot runaway and produce millions of messages because it will block if
+# nothing is reading those messages.
+#
+# We still need to worry about one very busy thread of message processing
+# (signal processor, I suppose) stealing all of the available compute resources,
+# so fairness sorting needs to go into the selection of the next emission to be
+# passed along.
 ################################################################################
