@@ -17,6 +17,14 @@ function transduce(xform, f, to, from)
     g(reduce(g, to, from))
 end
 
+function into()
+    vec()
+end
+
+function into(x)
+    x
+end
+
 function into(to, from)
     reduce(conj, to, from)
 end
@@ -54,6 +62,10 @@ end
 
 function conj(x)
     x
+end
+
+function concat(xs, ys)
+    into(xs, ys)
 end
 
 function map(f)

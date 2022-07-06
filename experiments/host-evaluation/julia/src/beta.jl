@@ -2,7 +2,7 @@
 
 import Base: string
 
-import Main.DataStructures: vec, map, nil, assoc, emptymap, hashmap, MapEntry, Map, into, first, rest, keyword, transduce, conj, reduce, merge, Keyword, name, empty, Vector, emptyvector, count
+import Main.DataStructures: vec, map, nil, assoc, emptymap, hashmap, MapEntry, Map, into, first, rest, keyword, transduce, conj, reduce, merge, Keyword, name, empty, Vector, emptyvector, count, get, vals
 
 state = keyword("state")
 in    = keyword("in")
@@ -25,17 +25,17 @@ function string(x::Beta)
     string(hashmap(keyword("in"), x.ins, keyword("out"), x.outs, keyword("body"), x.lambda))
 end
 
-struct Network
-    βs
-    wires
+function network(m, ws)
+    hashmap(keyword("networks"), m, keyword("wires"), ws)
 end
 
 function network(n::Keyword, β::Beta)
-    Network(hashmap(n, β), vec())
+    network(hashmap(n, β), vec())
 end
 
+
 function ln(body)
-    Network(
+    network(
         hashmap(
             keyword("main"),
             beta(vec(in), vec(out), e -> x -> e(reduce(conj, vec(out), body(get(x, in)))))
@@ -44,15 +44,11 @@ function ln(body)
     )
 end
 
-emptynetwork = Network(emptymap, emptyvector)
+emptynetwork = network(emptymap, emptyvector)
 
-function emptyp(x::Network)
-    x == emptynetwork
-end
-
-function string(x::Network)
-    string(hashmap(keyword("βs"), x.βs, keyword("wires"), x.wires))
-end
+# function emptyp(x::Network)
+#     x == emptynetwork
+# end
 
 struct Source
     out
@@ -103,36 +99,32 @@ function extendnamespace(x::Vector, name)
     into(empty(x), map(x -> extendnamespace(x, name)), x)
 end
 
-function extendnamespace(net::Network, name)
-    Network(
-        extendnamespace(net.βs, name),
-        into(vec(), map(x -> extendnamespace(x, name)), net.wires)
-    )
-end
+# function extendnamespace(net::Network, name)
+#     Network(
+#         extendnamespace(net.βs, name),
+#         into(vec(), map(x -> extendnamespace(x, name)), net.wires)
+#     )
+# end
 
 function extendnamespace(x::MapEntry)
     extendnamespace(x.value, name(x.key))
 end
 
-function mergenetworks1(a::Network, b::Network)
-    Network(merge(a.βs, b.βs), into(a.wires, b.wires))
-end
+# function mergenetworks1(a::Network, b::Network)
+#     Network(merge(a.βs, b.βs), into(a.wires, b.wires))
+# end
 
-function mergenetworks1(x::Network)
-    x
-end
+# function mergenetworks1(x::Network)
+#     x
+# end
 
-function mergenetworks1()
-    emptynetwork
-end
+# function mergenetworks1()
+#     emptynetwork
+# end
 
-function mergenetworks(netmap::Map)
-    transduce(map(extendnamespace), mergenetworks1, emptynetwork, netmap)
-end
-
-function wire(n, newwire)
-    Network(n.βs, conj(n.wires, newwire))
-end
+# function mergenetworks(netmap::Map)
+#     transduce(map(extendnamespace), mergenetworks1, emptynetwork, netmap)
+# end
 
 ################################################################################
 # Simple Networks (transducer analogues)
@@ -154,7 +146,7 @@ function pbody(n)
 end
 
 function partition(n)
-    Network(
+    network(
         hashmap(
             keyword("main"), beta(vec(in, state), vec(out, state), pbody(n)),
             keyword("state"), βmap(identity),
@@ -199,7 +191,7 @@ function interposebody(delim)
 end
 
 function interpose(delim)
-    Network(
+    network(
         hashmap(
             keyword("main"), beta(vec(in, state), vec(out, state), interposebody(delim)),
             keyword("state"), βmap(identity),
@@ -244,7 +236,7 @@ function prepend(xs)
         end
     end
 
-    Network(
+    network(
         hashmap(
             keyword("main"), beta(vec(in, state), vec(out, state), inner),
             keyword("init-state"), source(out, vec(keyword("uninitialised")))
@@ -398,3 +390,28 @@ end
 # so fairness sorting needs to go into the selection of the next emission to be
 # passed along.
 ################################################################################
+
+function sources(n::Source)
+    vec(n)
+end
+
+function sources(n::Map)
+    subs = get(n, keyword("networks"))
+    if subs === nil
+        vec()
+    else
+        transduce(map(sources), into, vec(), vals(subs))
+    end
+end
+
+function sources(n::Beta)
+    vec()
+end
+
+"""Returns a representation of a network conducive to walking as a graph."""
+function tograph(net::Map)
+
+end
+
+function step(net::Map)
+end
