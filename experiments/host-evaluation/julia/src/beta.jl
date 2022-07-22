@@ -8,6 +8,9 @@ state = keyword("state")
 in    = keyword("in")
 out   = keyword("out")
 
+knetworks = keyword("networks")
+kwires = keyword("wires")
+
 struct Beta
     ins
     outs
@@ -72,7 +75,6 @@ function collector()
     Sink(in, nil)
 end
 
-
 function βmap(λ)
     ln(e -> x -> e(λ(x)))
 end
@@ -110,21 +112,25 @@ function extendnamespace(x::MapEntry)
     extendnamespace(x.value, name(x.key))
 end
 
-# function mergenetworks1(a::Network, b::Network)
-#     Network(merge(a.βs, b.βs), into(a.wires, b.wires))
-# end
+function mergenetworks1(a, b)
+    hashmap(
+        knetworks, merge(get(a, knetworks), get(b, knetworks)),
+        kwires, into(get(a, kwires), get(b, kwires))
+    )
 
-# function mergenetworks1(x::Network)
-#     x
-# end
+end
 
-# function mergenetworks1()
-#     emptynetwork
-# end
+function mergenetworks1(x)
+    x
+end
 
-# function mergenetworks(netmap::Map)
-#     transduce(map(extendnamespace), mergenetworks1, emptynetwork, netmap)
-# end
+function mergenetworks1()
+    emptynetwork
+end
+
+function mergenetworks(netmap::Map)
+    transduce(map(extendnamespace), mergenetworks1, emptynetwork, netmap)
+end
 
 ################################################################################
 # Simple Networks (transducer analogues)
