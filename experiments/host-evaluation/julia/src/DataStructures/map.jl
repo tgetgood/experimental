@@ -219,6 +219,10 @@ function string(m::Map)
     return "{" * inner * "}"
 end
 
+function keys(m::Map)
+    into(vec(), map(x -> x.key), m)
+end
+
 function vals(m::Map)
     into(vec(), map(x -> x.value), m)
 end

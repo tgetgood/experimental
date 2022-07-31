@@ -2,7 +2,7 @@
 
 import Base: string
 
-import Main.DataStructures: vec, map, nil, assoc, emptymap, hashmap, MapEntry, Map, into, first, rest, keyword, transduce, conj, reduce, merge, Keyword, name, empty, Vector, emptyvector, count, get, vals
+import Main.DataStructures: vec, map, nil, assoc, emptymap, hashmap, MapEntry, Map, into, first, rest, keyword, transduce, conj, reduce, merge, Keyword, name, empty, Vector, emptyvector, count, get, vals, keys
 
 state = keyword("state")
 in    = keyword("in")
@@ -292,11 +292,13 @@ end
 
 tx1 = compose(
     hashmap(
+        keyword("interpose"), interpose(0),
         keyword("prepend"), prepend(vec(1,2,3)),
         keyword("dup"), dup,
         keyword("append"), append(vec(7,8,9))
     ),
     vec(
+        vec(keyword("interpose.main", "out"), keyword("prepend.main", "in")),
         vec(keyword("prepend.main", "out"), keyword("dup.main", "in")),
         vec(keyword("dup.main", "out"), keyword("append.main", "in"))
     )
@@ -322,6 +324,7 @@ function into(net, in, out, to, from)
             vec(extendnamespace(out, "xform"), keyword("to.main", "in"))
         )
     )
+    # FIXME: What do these bits actually mean?
     run(inet)
     collect(collector)
 end
@@ -396,6 +399,13 @@ end
 # so fairness sorting needs to go into the selection of the next emission to be
 # passed along.
 ################################################################################
+# The above will need a special case hack for recursive topologies, but that
+# might be the right way to do it. It will have to do for now, in any case.
+#
+# To unify this with other notes: This is currently the static root
+# topology. Once we get that working, we can extend the runtime to handle
+# toposinks.
+################################################################################
 
 function sources(n::Source)
     vec(n)
@@ -414,9 +424,10 @@ function sources(n::Beta)
     vec()
 end
 
+
 """Returns a representation of a network conducive to walking as a graph."""
 function tograph(net::Map)
-
+# adjacency list analogue for hypergraphs: node -> out-ch -> node -> in-ch
 end
 
 function step(net::Map)

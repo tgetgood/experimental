@@ -19,7 +19,7 @@ export first, rest, take, drop, reduce, transduce, into, map, filter, interpose,
 export  emptyvector, nth, vec
 
 # Maps
-export emptymap, assoc, dissoc, containsp, hashmap, merge
+export emptymap, assoc, dissoc, containsp, hashmap, merge, keys, vals
 
 # Generic
 export conj, get, count, empty, emptyp, nil, keyword, name
