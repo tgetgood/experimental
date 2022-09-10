@@ -1,8 +1,11 @@
 # module Operators
 
+#include("DataStructures/core.jl")
+
 import Base: string
 
-import Main.DataStructures: vec, map, nil, assoc, emptymap, hashmap, MapEntry, Map, into, first, rest, keyword, transduce, conj, reduce, merge, Keyword, name, empty, Vector, emptyvector, count, get, vals, keys
+using Main.DataStructures
+using Main.DataStructures: Vector, vec, first
 
 state = keyword("state")
 in    = keyword("in")

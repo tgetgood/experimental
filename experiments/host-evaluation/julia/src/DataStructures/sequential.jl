@@ -1,3 +1,5 @@
+abstract type Sequence end
+
 function reduce(f, coll)
     reduce(f, f(), coll)
 end

@@ -7,10 +7,11 @@ hashbits = 5
 nodelength = 2^hashbits
 nil = nothing
 
-include("./DataStructures/values.jl")
-include("./DataStructures/sequential.jl")
-include("./DataStructures/vector.jl")
-include("./DataStructures/map.jl")
+include("./values.jl")
+include("./sequential.jl")
+include("./vector.jl")
+include("./map.jl")
+include("./queue.jl")
 
 # Sequential
 export first, rest, take, drop, reduce, transduce, into, map, filter, interpose, dup
@@ -20,6 +21,9 @@ export  emptyvector, nth, vec
 
 # Maps
 export emptymap, assoc, dissoc, containsp, hashmap, merge, keys, vals
+
+# Queues
+export Queue, queue, emptyqueue
 
 # Generic
 export conj, get, count, empty, emptyp, nil, keyword, name

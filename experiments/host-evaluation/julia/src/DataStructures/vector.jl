@@ -129,7 +129,7 @@ end
 # FIXME: This method of iterating a vector doesn't allow the head to be
 # collected and so will use more memory than expected when used in idiomatic
 # lisp fashion. That should be fixed.
-struct VectorSeq
+struct VectorSeq <: Sequence
     v
     i
 end
@@ -138,8 +138,16 @@ function count(v::VectorSeq)
     count(v.v) - v.i + 1
 end
 
+function seq(v::Vector)
+    VectorSeq(v, 1)
+end
+
 function rest(v::Vector)
-    VectorSeq(v, 2)
+    if v == emptyvector
+        return emptyvector
+    else
+        return VectorSeq(v, 2)
+    end
 end
 
 function first(v::VectorSeq)
@@ -147,7 +155,11 @@ function first(v::VectorSeq)
 end
 
 function rest(v::VectorSeq)
-    VectorSeq(v.v, v.i + 1)
+    if v.i == count(v.v)
+        return emptyvector
+    else
+        return VectorSeq(v.v, v.i + 1)
+    end
 end
 
 function get(v::Vector, i)
