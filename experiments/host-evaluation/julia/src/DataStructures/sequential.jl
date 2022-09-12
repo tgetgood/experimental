@@ -19,6 +19,11 @@ function transduce(xform, f, to, from)
     g(reduce(g, to, from))
 end
 
+function transduce(xform, f, from)
+    g = xform(f)
+    g(reduce(g, g(), from))
+end
+
 function into()
     vec()
 end
@@ -144,4 +149,19 @@ function dup(emit)
         emit(emit(acc, next), next)
     end
     return inner
+end
+
+function prepend(head)
+    function (emit)
+        function inner()
+            print(emit())
+            reduce(emit, emit(), head)
+        end
+        function inner(res)
+            emit(res)
+        end
+        function inner(res,next)
+            emit(res, next)
+        end
+    end
 end
