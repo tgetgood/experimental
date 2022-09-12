@@ -3,6 +3,7 @@ include("../modules.jl")
 # module Runtime
 
 import Main.DataStructures as ds
+import Main.Networks as beta
 
 # We always need a buffer of at least one for stateful nodes. Without buffering,
 # a node that emits to itself would deadlock.
@@ -10,7 +11,7 @@ import Main.DataStructures as ds
 # REVIEW: There might be a better way to achieve this with input collectors.
 defaultchannelbuffer = 1
 
-function mapo(f)
+function map(f)
     function (emit)
         function (x)
             emit(f(x))
@@ -18,6 +19,31 @@ function mapo(f)
     end
 end
 
-v = ds.transduce(ds.prepend(ds.vec(1,2,3)), ds.conj, ds.vec(0,0,0))
+# ex = map(f) ∘ filter(p) ∘ interpose(t)
 
-v2 = ds.transduce(ds.prepend(ds.vec(1,2,3)) ∘ ds.dup ∘ ds.map(x -> x + 5), ds.conj, ds.vec(0,0,0))
+# in = ds.keyword("in")
+# out = ds.keyword("out")
+
+# mapper = ds.hashmap(
+#     in, [in],
+#     out, [out],
+#     ds.keyword("body"), map(x -> x + 1)
+# )
+
+function network(tx)
+    in = Channel(1)
+    out = Channel(1)
+
+    function emit(xs...)
+        for x in xs
+            put!(out, x)
+        end
+    end
+
+    action = tx(emit)
+    @async begin
+        action(take!(in))
+    end
+
+    return [in, out]
+end

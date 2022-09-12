@@ -1,6 +1,4 @@
-# module Operators
-
-#include("DataStructures/core.jl")
+module Networks
 
 import Base: string
 
@@ -434,4 +432,6 @@ function tograph(net::Map)
 end
 
 function step(net::Map)
+end
+
 end

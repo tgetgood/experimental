@@ -154,7 +154,6 @@ end
 function prepend(head)
     function (emit)
         function inner()
-            print(emit())
             reduce(emit, emit(), head)
         end
         function inner(res)
