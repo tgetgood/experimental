@@ -31,19 +31,75 @@ end
 # )
 
 function network(tx)
-    in = Channel(1)
-    out = Channel(1)
+    in = Channel()
+    out = Channel()
 
-    function emit(xs...)
-        for x in xs
-            put!(out, x)
-        end
+    function emit(x)
+        put!(out, x)
     end
 
     action = tx(emit)
+
     @async begin
-        action(take!(in))
+        while in.state == :open || isready(in)
+            v = take!(in)
+            action(v)
+        end
+        close(out)
     end
 
     return [in, out]
+end
+
+function bogoprof()
+    n = network(map(x -> x^2 ))
+    sig = Channel()
+    top = 1000000
+    t0 = time()
+
+    @async begin
+        try
+            for i = 1:top
+                put!(n[1], i)
+            end
+            close(n[1])
+        catch e
+            println(e)
+        end
+    end
+
+    x = []
+
+    for i=1:top
+        @async begin
+            append!(x, take!(n[2]))
+        end
+    end
+
+    println(last(x))
+
+    @async put!(sig, x)
+
+    @async begin
+        try
+            x = take!(sig)
+            t1 = time()
+            println(last(x))
+            println("Time:"* string(t1 - t0))
+        catch e
+            println(e)
+        end
+    end
+
+    nothing
+end
+
+n = network(map(x -> x * x))
+
+t = @task println(take!(n[2]))
+
+@async begin
+    for i = 1:1000
+        put!(n[1], i)
+    end
 end
