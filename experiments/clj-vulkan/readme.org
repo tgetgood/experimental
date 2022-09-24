@@ -1,27 +1,49 @@
+#+TITLE: Why is There No Functional Vulkan Wrapper?
+
+Vulkan has a lot of great ideas going on, but it has the reputation of being on
+a level akin to assembly. It doesn't help that the shader language SPIR-V takes
+a lot from LLVM-IR.
+
+The API structure is very amenable to functional programming; internal
+configuration is all via structs and the the core api generally treats all
+arguments to functions as immutable except for the last which is where the
+return value gets written. That's enough hide the hardware's location semantics
+under a layer that only has value semantics.
+
+I see two reasons for vulkan's continuing reputation as a super low level tool,
+not fit for higher level languages.
+
+First reason: Alexander Overvoorde
+
+His tutorial on Vulkan is so good that no one has bothered to write
+another. Every tutorial that claims "Learn vulkan in X" really means "Learn to
+write C code in X so that we can cut and paste Overvoorde's tutorial".
+
+Crippled by success, I suppose you could call this.
+
+The other main reason is the percieved need for bleeding edge performance.
+
+If you're working on a AAA game, or implementing tensorflow, then yes, working
+directly in C has benefits.
+
+But that's just not my usecase. I want to interactively develop graphics. I want
+a repl where I can change the fractal equation that generates a texture and see
+an image update as I go. A tool for playing around.
+
+Heavy weight tools like maya and 3d studio max let you do that. But I want
+something more like gnu plot that I can integrate into an emacs frame.
+
 * Vulkan API spec
   https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/main/xml/vk.xml
 
-  I'm writing this because there's only really one Vulkan turial online. It's a
-  fantastic tutorial, which is part of the problem: no one has needed to write
-  another. Of course there are flavours of it in many different languages, but
-  they all share the structure of the original.
+  That XML file is the source of truth for the API. The C library is an
+  implementation of it. That's the official line, in any case.
 
-  The take away most people get from this is "Vulkan is a C library, so whatever
-  language you're working in, you write C within it to talk to Vulkan".
+  So, in principle, we should be able to generate a new library for ourselves
+  from that api spec and not use the existing C library. In practice I expect
+  that to be full of gotchas. But it will be a fun learning experience.
 
-  But Vulkan is not a C library; it's a binary protocol for communicating with
-  graphics hardware with a canonical implementation in C.
-
-  Admittedly a lot of C's ideology bleeds through into Vulkan (calling
-  conventions, data layouts, naming conventions), but these are implementation
-  details which can be wrapped over easily.
-
-  And so we land here: an attempt to wrap LWJGL's C-in-Java Vulkan API into a
-  natural feeling, dynamic, garbage collected, data driven clojure library.
-
-  Performance won't be a consideration initially, so if you're setting up a
-  render farm, go somewhere else.
-
-
+  How much of libc do we need? What about using rust's libstd instead?
 * Graal Native Vulkan Wrapper
-  Lwjgl is
+  Lwjgl is killing me. Simulating the C memory model on the JVM is just the
+  wrong way to do this.

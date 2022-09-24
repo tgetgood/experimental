@@ -41,8 +41,7 @@ working in clojure.
     clj-vulkan project is a basic proof of concept, but it needs to be ported to
     a better ffi than lwjgl uses.
 *** Suitability as an initial runtime
-    migrating off of the jvm might prove to be a mammoth undertaking. I have to
-    remove all vestiges of java bytecode from the app which could take forever.
+    migrating off of the jvm might prove to be a mammoth undertaking.
 
     The jvm is also heavy, so I'm not sure how interactive the experience will
     be as datastructures are translated back and forth.
@@ -73,6 +72,11 @@ working in clojure.
 
    The number types were clearly thought out with mathematics in mind — and not
    just numerics — which is so rare for a programming language.
+
+   As I learn more Julia, the CLOS based polymorphism is a dream. Complex logic
+   just falls apart into trivial functions matching type patterns. It's also the
+   source of Julia's fast bitcode generation. Maybe I should be stealing this as
+   well?
 ** Zig
 ** Nim
 ** Chapel
@@ -122,13 +126,13 @@ working in clojure.
    - [X] reader
      I basically copied the clojure reader, dropping most of the
      functionality. But ~200 lines of code and a couple of days is pretty good
-     considering I was both learing the language and the write a reader.
+     considering I was both learing the language and to write a reader.
 
      This doesn't include the week long detour into the new control flow theory
      I developed.
    - [X] data structures
-     Well, technically I have data structures. They're copy on write and maps
-     are just alists, so don't count on performance. Sets are not implemented.
+     Well, technically I have data structures and a bare bones core library for
+     manipulating them. As I use them more the bugs will surface.
    - [ ] interpreter
      metacircular all the way. This is about clarity of semantics — as much as I
      hate that word — more than anything else. And the meaning of a program is

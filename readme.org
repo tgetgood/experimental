@@ -1,3 +1,5 @@
+#+TITLE: Experiments in Language Design
+
 This repo is a bucket for experiments and prototypes,which may not on the
 surface appear to be related at all. I think they are, but that might change.
 
