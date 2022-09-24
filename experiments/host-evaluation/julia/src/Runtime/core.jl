@@ -2,6 +2,7 @@ include("../modules.jl")
 
 # module Runtime
 
+using PrettyPrint
 import Main.DataStructures as ds
 import Main.Networks as beta
 
@@ -19,87 +20,153 @@ function map(f)
     end
 end
 
-# ex = map(f) ∘ filter(p) ∘ interpose(t)
-
-# in = ds.keyword("in")
-# out = ds.keyword("out")
-
-# mapper = ds.hashmap(
-#     in, [in],
-#     out, [out],
-#     ds.keyword("body"), map(x -> x + 1)
-# )
-
-function network(tx)
-    in = Channel()
-    out = Channel()
-
-    function emit(x)
-        put!(out, x)
-    end
-
-    action = tx(emit)
-
-    @async begin
-        while in.state == :open || isready(in)
-            v = take!(in)
-            action(v)
-        end
-        close(out)
-    end
-
-    return [in, out]
-end
-
-function bogoprof()
-    n = network(map(x -> x^2 ))
-    sig = Channel()
-    top = 1000000
-    t0 = time()
-
-    @async begin
-        try
-            for i = 1:top
-                put!(n[1], i)
+function filter(p)
+    function(e)
+        function(x)
+            if p(x)
+                e(x)
             end
-            close(n[1])
-        catch e
-            println(e)
         end
     end
-
-    x = []
-
-    for i=1:top
-        @async begin
-            append!(x, take!(n[2]))
-        end
-    end
-
-    println(last(x))
-
-    @async put!(sig, x)
-
-    @async begin
-        try
-            x = take!(sig)
-            t1 = time()
-            println(last(x))
-            println("Time:"* string(t1 - t0))
-        catch e
-            println(e)
-        end
-    end
-
-    nothing
 end
 
-n = network(map(x -> x * x))
+abstract type Node end
 
-t = @task println(take!(n[2]))
+struct Network
+    networks
+    wires
+end
 
-@async begin
-    for i = 1:1000
-        put!(n[1], i)
+struct Beta <: Node
+    in
+    out
+    lambda
+end
+
+struct Source <: Node
+    out
+    vals
+end
+
+struct Sink <: Node
+    in
+    f
+end
+
+function sink(f)
+    Sink(:in, f)
+end
+
+function source(xs)
+    Source(:out, xs)
+end
+
+function network(vs::Pair...)
+    Network(Dict(vs), Dict())
+end
+
+function network(nets, wires)
+    Network(nets, wires)
+end
+
+function linearbeta(tx)
+    function wrap(e)
+        function(x)
+           tx(x -> reduce(append!, x, init=[:out]))(x[:in])
+        end
     end
+    network(
+        :main => Beta([:in], [:out], wrap)
+    )
+end
+
+function interpb(sep)
+    function(e)
+        function(x)
+            if x[:state] == true
+                e([:out, sep, x])
+            else
+                e([:state true], [:out x])
+            end
+        end
+    end
+end
+
+function interpose(sep)
+    network(
+        Dict(
+            :main => Beta([:in, :state], [:out, :state], interpb),
+            :initstate => source([false])
+        ),
+        Dict(
+            [:main, :state] => [:main, :state],
+            [:initstate, :out] => [:main, :state]
+        )
+    )
+end
+
+testnet = network(
+    Dict(
+        :map => linearbeta(map(x -> x^2)),
+        :filter => linearbeta(filter(x -> x % 2 == 0)),
+        :interpose => interpose(0),
+        :out => sink(println),
+        :in => source([1,2,3,4,5,6])
+    ),
+    Dict(
+        [:in, :out] => [:map, :main, :in],
+        [:map, :main, :out] => [:filter, :main, :in],
+        [:filter, :main, :out] => [:interpose, :main, :in],
+        [:interpose, :main, :out] => [:out, :in]
+    )
+)
+
+abstract type Topology end
+
+struct StaticTopology <: Topology
+    nodes
+    wires
+end
+
+struct RunningTopology <: Topology
+    nodes
+    wires
+    messages
+end
+
+function mergetopo(n1::Topology, n2::Topology)
+    StaticTopology(merge(n1.nodes, n2.nodes), merge(n1.wires, n2.wires))
+end
+
+function topology(x::Node)
+    StaticTopology(Dict([] => x), Dict())
+end
+
+function topology(n::Network)
+    subnets = Base.map(
+        (k, v) -> nesttopology(k, topology(v)),
+        keys(n.networks),
+        values(n.networks)
+    )
+
+    flat = reduce(mergetopo, subnets)
+
+    StaticTopology(flat.nodes, merge(n.wires, flat.wires))
+end
+
+function dmap(f, d)
+    v = Base.map(f, keys(d), values(d))
+    if v == nothing
+        Dict()
+    else
+        Dict(v)
+    end
+end
+
+function nesttopology(prefix::Symbol, t::Topology)
+    nodes = dmap((k,v) -> vcat([prefix], k) => v, t.nodes)
+
+    wires = dmap((k, v) -> vcat([prefix], k) => vcat([prefix], v), t.wires)
+
+    StaticTopology(nodes, wires)
 end

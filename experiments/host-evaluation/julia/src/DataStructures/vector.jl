@@ -172,7 +172,7 @@ end
 
 function reduce(f, init::Vector, coll::VectorNode)
     Base.reduce(
-        (acc, x) -> Base.reduce(f, x, init=acc),
+        (acc, x) -> reduce(f, acc, x),
         coll.elements,
         init=init
     )

@@ -1,2 +1,5 @@
 name = "julia-host-test"
 version = "0.0.0"
+
+[deps]
+PrettyPrint = "8162dcfd-2161-5ef2-ae6c-7681170c5f98"
