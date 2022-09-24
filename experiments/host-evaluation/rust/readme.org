@@ -1,0 +1,34 @@
+#+TITLE: Lisp in Rust
+
+This example isn't even functional, and yet I have no motivation to keep going
+in this direction.
+
+I should try to understand why that is. I'm not an experienced enough Rust
+programmer to have deeply informed opinions, but my intuition is that rust is
+just fundamentally unsuitable for my purposes.
+
+* Globally Static
+  This is the biggest deal breaker. Rust takes the classical algorithmic stance
+  that the world is closed and everything can be known at compile time
+  syntactically (from analysing textual source code).
+
+  The problems with the formalist program were firmly established by 1936, and
+  the dogmatic — though unconscious and unacknowlagable — adherence to the
+  formalist-turing machine-behaviourist school is the reason I left AI in the
+  first place. I want to build something with the robustness of a pond full of
+  amoeba; not an isolated program, but an ecosystem. Staticallity at a high
+  level is the enemy.
+
+  Paradoxically, I'm still convinced that greater staticallity at the lowest
+  levels is the key to achieving robust dynamism at higher levels.
+
+* Verbosity
+  Maybe I'm just too much of a mathematician, but large verbose codebases are
+  offputting. I want to be able to write the interpreter on a postcard (or at
+  least a single chalkboard) so that I can be convinced it's too simple to be
+  wrong.
+
+  The compiler can prove programs, but the hard truth about logic is that once a
+  proof passes a certain level of complexity, knowing what's been proven is the
+  real challenge. "Before you try and prove a result, first convince yourself
+  it's true." is still the best advice I've ever read.
