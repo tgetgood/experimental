@@ -15,6 +15,48 @@ surface appear to be related at all. I think they are, but that might change.
    These are all hard questions and I don't have hard answers as of yet. I'm thus
    forced to resort to a collage of sorts...
 *** Perspective: Coordination Languages
+    Cf https://dl.acm.org/doi/10.1145/129630.129635
+
+    The basic idea of a coordination language is that computers do two
+    orthogonal things: they compute, and they communicate. Thus there should be
+    two levels of design (and possibly two separate languages) in
+    programming. One to define the computations and the other to specify how
+    they communicate with one another.
+
+    The universal bubble (lambda expressible, turing computable, recursively
+    definable, &c.) is a mathematics of closed formal systems. They express the
+    notion of computation, but by being closed they prohibit communication.
+
+    In the same paper in which Turing defined his automatic machines (1936) he
+    also defined a class of machines called choice machines which communicate
+    with a human operator. He showed that choice machines, by being able to ask
+    an arbitrary number of y/n questions are qualitatively more powerful than
+    automatic machines (which we today call Turing machines). The gist of the
+    argument is that the set of Turing machines is countable, but 2^ω is not.
+
+    It shouldn't be controversial that Turing computable is a small subset of
+    "can be done by modern electronic devices" — it was clearly stated by Turing
+    before any such devices existed — but I've spent too much of my life going
+    over this in bars late into the night. Read the Standford encyclopedia of
+    philosophy entry on the Church-Turing thesis.
+
+    So if Turing machines are very limited, why use them? The answer is because
+    we have very powerful mathematical tools for creating, testing, proving, and
+    thinking about them. Our knowledge of communication is very poor in
+    comparison. Except when it comes to telephony.
+
+    Hypothesis: We can build a pure functional language that has no side
+    effects — no I/O, no mutable references, &c. — except for a single primitive
+    `emit` which sends a message. We can then reconstruct a practical language
+    for real software by using a DSL to wire together these pure units into
+    networks (hypergraphs? simplicial complexes?).
+
+    Conjecture: If such a language can be built, then it can be built from
+    primitive recursive units wired into networks. Branching and recursion can
+    be expressed as message passing topologies, so we can build general
+    recursive functions without choice. This also has practical significance
+    because primitive recursive functions are easy to prove correct (induction)
+    and always halt if correct.
 *** Perspective: A Generalisation of Homoiconicity
     Let's start with a parable. One based on a [[https://news.ycombinator.com/item?id=11939851][true story]], but reinterpreted to
     suit my needs.
@@ -633,7 +675,181 @@ surface appear to be related at all. I think they are, but that might change.
 
     It should also help optimisers that want to reorder larger chunks of a
     program, or automatic parallelisation.
-*** Function, Proceedures, Routines, and Coroutines
+*** Function, Proceedures, Coroutines, and Transducers
+    Are function a good fundamental unit for programming?
+
+    Can you guess what I think?
+
+    Example: is (get m k) a pure function (clojure semantics, not a trick
+    question)?
+
+    The answer depends on whether you consider `nil` a first class thing.
+
+    Hoare's null pointer blunder is due, at the end of the day, to the fact that
+    (get m k) often has nothing meaningful to return. If k is not in m then
+    there is no answer. But by the semantics of function calls, something must
+    be returned. And so we reify nothing into null, nil, None,
+    NotFoundException, etc..
+
+    Type theory gives you a way of reifying nothing without the danger of null
+    references, but it's still just a kludge to fix an older kludge.
+
+    Why can't (get m k) just not return anything if it has nothing to return?
+
+    Because functions always return a value. In set theory a function has a
+    value for valid input, type theory lets you enforce this, but what is a
+    reasonable k in (get m k)? Any value is a valid key, so should be part of
+    the domain, but m is a finite map, so almost all inputs yield no valid
+    output.
+
+    So get is really a partial function whose domain depends on its first
+    argument.
+
+    Now what about `when`?
+
+    Can we build a language that just short circuits instead of returning a
+    reified nothing? Do nothing, don't say "nothing". `when` sends a message
+    somewhere if its predicate comes back true, and if it comes back false, the
+    current fibre of execution just dies and unwinds.
+
+    If we add a mechanism to catch this unwinding, then we can build `if` from
+    `when` and (get m k default) from (get m k). But by default it just unwinds
+    all the way to the runtime and something else gets scheduled.
+
+    So under the hood, these "functions" are proceedures that might jump to the
+    return pointer when they finish, or might just `GOTO HALT`. Weird, but still
+    structured in its own way.
+
+    We now have "functions" that return zero or one value to the caller. Why
+    stop there? A transducer is just such a "function" that passes on zero or
+    more values for every input. It doesn't quite return to the caller, but
+    we'll come back to that.
+
+    Orthogonal issues: to whom to we "return" these values? and when?
+
+    Conjecture: if we get the whom right, then when ceases to matter. This will
+    take some justification in a separate point (see [[*The Myth of Synchoronicity][The Myth of Synchoronicity]]).
+
+    A coroutine is a proceedure (aka routine) which decides for itself where
+    control goes next. Instead of a call stack which decides what "return" means
+    for you, (symmetric) coroutines end in a (yield X value) statement which
+    says "send this value to X and give it control".
+
+    I'm still trying to work out what a persistent (ie stateless) coroutine
+    would look like at the assembly level. I'm pretty sure I want the solution
+    to this problem, but it's not trivial and until I hit the point where I 100%
+    need it, it only gets background thought privileges.
+
+    Now take a toy program like
+    =(fn [k] (let [v (get m k)] (when (even? v) (* v v))))=
+    This says given a `k`, look it up and get back a (presumably) number, if
+    it's even square it.
+
+    What does (let [v (get m k)]) actually do? Is m local? does get park and
+    wait for a remote server?
+
+    It shouldn't matter. If we have control over where functions return, then
+    `let` tells `get` send a value back to "here" (label?, call_cc()?), `get`
+    then gets control and goes about its business. If it parks, `let` will be
+    none the wiser, so long as `get` passes on the corrent place to yield the
+    eventual value.
+
+    So if `get` finds a value to return that value finds its way back to the
+    let statement which binds it to the name `v`, and control moves on to the
+    body of `let`. Similarly if `when` decides to pass on control to its body
+    then eventually `*` is passed `v` twice, does whatever it does and sends
+    it's value to ???
+
+    That's a good question. `*` should inherit its return pointer from `when`
+    which inherits it from `let`, which in this case gets it off the return
+    stack since we're invoking the `let` as the body of a function.
+
+    Thus we get standard stack based funcall semantics even if get (and `even?`)
+    actually have to park and wait for data. We have async handling without
+    red/blue dichotomy or confusing keywords.
+
+    But notice that we also get short circuiting. If `(get m k)` returns
+    nothing, then we don't need to test `(even? nil)` because the computation
+    just ends at `get`. We get a cheaper version of nil punning with no risk of
+    using a null pointer because there is no null pointer. "nil" isn't a
+    thing. We return nothing, not "nothing".
+
+    But what if `m` is a multimap and `(get m k)` returns multiple values?
+
+    N.B.: what follows is still actively in churn and I might consider it
+    idiotic next week.
+
+    One option is to require the programmer to have known that `m` was a
+    multimap to begin with and plan for a collection at all points downstream.
+
+    But blaming the user is too easy.
+
+    A better option might be to fork the computation. Remember that coroutines
+    are persistent and stateless, so each value `get` returns flows through the
+    rest of computation (possibly in parallel) resulting in multiple return
+    values getting passed back to the outermost caller. Note that this doesn't
+    return a collection, if returns multiple values.
+
+    If not everything returned from `get` is even, then the `when` statement
+    acts like a `filter` transducer.
+
+    This whole way of thinking about multiple return is inspired by transducers,
+    but with immutability enforced at the lowest levels, these are all trivially
+    parallelisable transductions.
+
+    So multiple returns cause the computation to fork, nodes in the
+    computational topology get replaced by lists of nodes (we should preserve
+    order of messages even as things fork).
+
+    This swelling of fibres of execution needs to be balanced by some form of
+    joining. Aggregations like reduce are natural join points in the topology,
+    but there won't always be a foldy step at the end, How to deal with this
+    forking phenomenon in general needs more thought.
+
+    Let's push a little further: is it reasonable to allow a "function" as
+    defined above to only return to a single place? What if it has multiple
+    messages (return values) that are fundamentally different and should go
+    different places?
+
+    As a practical example, how do you implement eval without mutability? Eval
+    needs to keep a context of evaluation around (to store `def`ed things), but
+    it also needs to return values to its caller. In a repl, eval must both send
+    a message back to itself (recursively), and send a separate message to
+    print. It can emit a pair, but then something downstream needs to split that
+    pair and do two different things with it.
+
+    Current idea: replace `yieldto` with `emit` but have a special form `fork`
+    which takes zero or more emit statements. This is a low level construct that
+    I don't see a way to avoid, but if it creeps its way into quotidian
+    development, the language might be a failure. I'm not really sure yet.
+*** The Myth of Synchoronicity
+    What is the meaning of `async` in contemporary programming languages?
+    It's a negative, and so only makes sense in relation to that which it's
+    negating. Is there such a thing as `sync` to give it meaning? I happen to
+    think it's as relic of legacy and habit.
+
+    Show me a syncronous instruction in a computer. Even assembly verbs take
+    different amounts of time. There's a huge difference between add and div,
+    but the same instruction always takes the same amount of time, right? What
+    about add with args on in registers, vs add with args on the heap? Does the
+    cache hit or miss? Is the system paused for GC?
+
+    All sync really means is "while I'm waiting, nobody else can use the
+    cpu". And in that sense, sync must die.
+
+    So does this mean we can't meet hard real time requirements? Not at all. A
+    program that assumes the cache will always hit is going to miss hard
+    deadlines. A properly written real time program knows that even if the cache
+    misses and everything possible goes wrong, the worst case bound is still
+    acceptable.
+
+    The goal is to bound the worst case, and the more we can do while waiting
+    the better.
+
+    Admittedly reasoning about async programs is harder because it's harder to
+    pretend we know things we don't, and the scheduler brings in its own
+    dynamics. But in the end, the more we admit the limits of our knowledge and
+    work within them, the more reliable systems will be.
 *** Start counting at 1
     The idea that real programmers start counting at zero comes from two
     related conflations. A conflation of cardinal and ordinal numbers, and a
@@ -712,3 +928,5 @@ surface appear to be related at all. I think they are, but that might change.
 * Potentially Useful Reading
   Emphasis on potential
 ** https://arxiv.org/abs/2206.01041
+* Copyright
+  © 2022 Thomas Getgood
