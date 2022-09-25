@@ -3,6 +3,712 @@
 This repo is a bucket for experiments and prototypes,which may not on the
 surface appear to be related at all. I think they are, but that might change.
 
+#+TOC: headlines 2
+
+* An Informal Theory of Computation
+** What is this?
+   What is the purpose of xprl? What are the assumptions underlying its design?
+   What's the theory of computation underlying its programming model? What
+   problems is it intended to solve? What novelty does it introduce? Why do I
+   bother putting so much time into organising these fractured thoughts?
+
+   These are all hard questions and I don't have hard answers as of yet. I'm thus
+   forced to resort to a collage of sorts...
+*** Perspective: Coordination Languages
+*** Perspective: A Generalisation of Homoiconicity
+    Let's start with a parable. One based on a [[https://news.ycombinator.com/item?id=11939851][true story]], but reinterpreted to
+    suit my needs.
+
+*** Perspective: Linguistic Archaeology
+    Or how to organise your information so that it won't be forgotten.
+
+    Is Linear A information? Rather is a text in Linear A information?  No. Not
+    according to information theory, in any case.
+
+    Information revolves around two parties sending messages across a
+    channel. Information is an emergent property of this setup whereby one party
+    informs the other. This informing crucially depends on shared context, an
+    establised message format.
+
+    Information cannot exist unless two parties share a context and messages.
+
+    If you are given a binary file, what can you do with it? look at the first few
+    bytes, see if it looks like ASCII, unicode, some sort of format header, look for
+    repeating delimiters that might indicate a sequence, or regular sized chunks
+    that might indicate records. If you're sufficiently familiar with conventions
+    and lucky you can probably reverse engineer the code.
+
+    If you're given a chunk of machine code for an old mainframe that you've
+    never heard of and of which none exist anymore, then you're shit out of
+    luck.
+
+    This task is essentially the same as that of an archaeologist tasked with
+    deciphering a piece of ancient writing in Linear A. If the surrounding
+    context were known, that is if one knew linear B, and cypro-minoan, egyptian,
+    etc. — not just in the sense that we "know" some of these today, but in the
+    sense that one knows English, French, or Russian — then deciphering a text in
+    Linear A might not prove incredibly difficult. Context is everything.
+
+    So what is on a tablet inscribed in linear A if it's not information? A
+    *message* is inscribed on the tablet, but if no one knows how to read it,
+    then the meaning is lost and no *information* can pass between the author and
+    the reader across the intervening millenia.
+
+    When we program we send messages to machines. These messages take the form of
+    source code, but what is source code? Does it contain information? If so,
+    who, or what, is informed?
+
+    Let us call something that can execute code an interpreter (ignoring
+    compilers, direct execution, etc.). If you send a message to an interpreter,
+    and it does what you expected it to in response, then in some limited sense
+    it understood you or "got the message". You successfully informed the
+    interpreter. Let us say that with respect to this interpreter, your message
+    was code.
+
+    A piece of text, or a blob of binary, or a group of dark spots on an optical
+    disk, are messages. Those messages can only be code in reference to a specific
+    interpreter. There need not exist an interpreter. A text file full of random
+    noise cannot be interpreted meaningfully. There is by definition (of
+    martin-lof randomness) no information to be had in the file.
+
+    At the same time, a given message might be different code to different
+    interpreters; see whitespace and polyglot code.
+
+    It's important to stress that a text file by itself is not code in this
+    sense. We can recognise a clojure source file by the .clj extension and so we
+    know to which interpreter to feed it, but that knowledge is communal and
+    contextual and can be lost. Without the interpreter the message is just a
+    message and can go the way of linear A.
+
+    In fact even without the .clj extension, if the file has been misnamed, we
+    can still recognise it as a clojure source file because we're familiar with
+    the language. But in this case even if we feed it to clojure it won't work
+    because the compiler won't recognise it. So here we have a source file which
+    we recognise as code, but which the interpreter with respect to which we call
+    it code cannot, in fact, interpret it.
+
+    Of course we can ourselves execute the code (on paper, in principle) using
+    the semantics of the language which we know. So the interpreter is an
+    abstract "clojure" that exists only in our collective cultural context, and
+    not the =clojure= program itself.
+
+    And this brings us to the point where we can ask the real question: if
+    written text is a message, and a message that can be interpreted is code
+    (with respect to the interpreter), what then is data?
+
+    We talk about data all the time. Code is data. Data driven design. Data is
+    better than functions are better than macros. Homoiconicity gives lisp the
+    power of arbitrary syntactic extension preciesely because macros operate on
+    the source code as a data structure. These definitions contradict each
+    other.
+
+    Or do they?
+
+    Let's take a closer look at homoiconicty. Homoiconicity at its simplest is
+    the statement that the text in source files is isomorphic to the AST of the
+    language in memory. This isomorphism is the lisp reader. Its inverse is the
+    printer.
+
+    The power of macros is that they operate on the AST, but they look and act as
+    if they were acting directly on the textual source code itself. This illusion
+    empowers programmers — who can only really "feel" their code in the textual
+    form that our editors manipulate — to extend our intuitions into the compiler
+    of the program, giving us further intuitive reach than is possible in a
+    language without homiconic syntactic macros.
+
+    So if macros let us extend our intuitions about (static) source code into the
+    runtime, why do we eschew them as a community? Why are functions better than
+    macros?
+
+    To answer this, let's extend our notion of homoiconity. Remember that
+    homoiconicty is an isomorphism across the reader. Another way of saying this
+    is to say that (print (read x)) is x for any valid sexp.
+
+    But we don't just read source code. The LISP reader by itself is not very
+    useful. After we read source files, we evalutate the ensuing sexp data
+    structure. To phrase it a little differently the output of the repl is
+    (print (*eval* (read x))).
+
+    To rephase again: the reader interprets a message (the source text) and the
+    result is the sexp data structure which itself is a message. This second
+    message is in turn interpreted by eval which is what we generally think of as
+    the lisp language.
+
+    Note that messages are no longer homoiconic across this chain of two
+    interpreters. The text "(+ 2 2)" comes back as the text "4". Syntax quoting
+    exists to disable evaluation so that we can work with homoiconicy across
+    eval.
+
+    There is, however one class of text which is still homoiconic in a broader
+    sense. What are those messages in text for which (print (eval (read x))) is
+    identical to x?
+
+    These are precisely the structures we call "literal data" in clojure. Quoted
+    forms are notably *not* literal data because the quoting is lost and a second
+    pass through the cycle will evaluate the form.
+
+    This generalised notion of homoiconicity gives us a hint as to the nature of
+    data. Or at least a definition that reconciles the apparent contradiction
+    above.
+
+    Code whose interpretation is isomorphic to its underlying message is data.
+
+    This tells us that code is data *with respect to the reader*, but not with
+    respect to the language as a whole.
+
+    data is better than functions are better than macros because data (with
+    respect to the repl) lets us extend our intuitions about textual source into
+    the runtime in the same way that macros allow us to extend it into compile
+    time, and functions work on data with respect to the repl, but are
+    themselves not data with respect to the repl (though they are data with
+    respect to the reader which allows macros to act on functions as functions
+    act on literal data).
+
+    This feels like semantic nitpicking until we rephrase the fundamental problem
+    of programming (to paraphrase Dijkstra) as "knowing what is going to happen
+    at runtime — given that the actual code executing is written not by a human
+    but by another program (a compiler) — in terms of the textual code that we
+    actually write".
+
+    Being able to manipulate (and understand) the physical execution via a true
+    isopmorphism with the text we write gives us an unparalleled avenue of attack
+    on this problem. Data driven design is a qualitative improvement in a way
+    that transcends all the petty bickering about so called programming paradigms
+    (which are at best ideologies and all too often dogmata).
+
+    So code can be data, functions can be code, and data can be better than
+    functions. You just have to realise that the meaning of the terms code and
+    data is not well defined without reference to an interpreter.
+
+    To confuse matters even more, a message can be code with respect to two
+    interpreters but only be data with respect to one of them. And the
+    interpretation of a message need have nothing to do with the intentions of
+    the author (cf. Roland Barthes 1967).
+
+    Something decidedly less black and white than Barthes seems necessary to
+    really understand this.
+
+    Barthes holds that to give full creative autonomy of interpretation to the
+    reader, one must let the author die, but of course it's more subtle than
+    that.
+
+    The author creates a text and (presumably) intends it to have a meaning. The
+    text is transmitted, the meaning is not. The reader gets the text and infers
+    a meaning by reading it.
+
+    Traditional literary theory holds that one should look to the life, opinions,
+    actions, etc. of the author when reading a text so as to try and infer the
+    author's intended meaning.
+
+    Post modern reading involves reading the text in and of itself — an act which
+    is of course impossible because you cannot read except from the context of
+    your own life and consciousness — and let the meaning come as it will.
+
+    I think that we have to be schitzophrenic about it. We need to maintain
+    simultaneous opinions about what we think the author meant from the context
+    of their life, and what the author meant (or to further confuse matters what
+    the text itself "means") from the text alone. These opinions will, in
+    general, contradict each other. In a sense both will be true, in another
+    sense neither will be true.
+
+    All we can hope to do is contrast the different readings and make a call in a
+    given context.
+
+    — Aside on self description and indefinite archiving —
+
+    Self description in this framework is ill defined. Description implies
+    communication which is only possible through shared context. So you would
+    need either a universal context, which is impossible, or a message combined
+    with an interpreter that is capable of building a context in which to
+    communicate from scratch. A feat which may or may not be possible. Maybe
+    scratch isn't necessary, maybe lincos was onto something.
+
+    Maintaining contextual consistency through the ages allows archaeologists to
+    bring dead cultures back in a somewhat hollow form. To really understand a
+    message, you need to keep a body of native speakers — or contextual natives —
+    around. I don't know how long that can be possible.
+**** Example of losing context
+     Sets, lists, maps (set theoretic functions) are very basic and seem like
+     they will never go away. If that's not a universal basis on which to build a
+     future proof semantics, what is?
+
+     100 years ago log tables were the primary means of computation. They were
+     considered indispensible to the point that sci fi into the 60s still assumed
+     space ships would have log tables that you would use to program the ship's
+     computer (Spaceman Jones).
+
+     Log tables have ceased to exist. Computers are so fast that we directly
+     compute quantities from power series. Often without using logarithms at
+     all. This would have been inconceivable in the past.
+
+     Besides, ZFC is an ugly theory. You need choice to do many basic things, it
+     leaves the continuum unsettled, it's just not a satisfying theory by many
+     criteria. Assuming that it's too fundamental to be replaced is a failure of
+     imagination.
+
+     That said, future archaeologists will know that we used sets and maps
+     and the rest and there will be books on the subject for historians of
+     technology.
+
+     It's the trail of context that needs to be maintained. Universality is a
+     myth. Gödel proved that in 1931, but it still hasn't sunk in.
+*** Perspective: Entropy (Cybernetics)
+    A message is a thing given or received. Being a message is orthogonal to the
+    idea of information.
+
+    Remember that information is a probabilistic notion. The information in a
+    message is the negative of its entropy, the unliklihood of its occurance.
+
+    But probability is not an ontological notion. Probability is an
+    epistemological proposition (Cf Jaynes 2003).
+
+    So whether there is information to be had in a message or not, is a matter of
+    context, a question of who receives the message.
+
+    The entire field of cryptography can only exist because of this contextuality
+    of information.
+
+    What is the distribution from which messages are drawn? what does it mean for
+    one message to be more likely than another? to have greater entropy? It means
+    that given a prior, that is a given state of knowledge about the world, there
+    are more configurations of the world leading to one message than another.
+
+    That prior is exactly what I mean by context.
+
+    Thermodynamics tells us that within a closed system, entropy always increases
+    in the long run. That is to say that for any prior distribution (context),
+    the posterior under observation of the system will approach the uniform in
+    measure (this could use a lot more rigour) over the long haul.
+
+    A Turing machine (going back to Turing (1936)) is a closed system. This point
+    is often glossed over in CS classes and textbooks, but is incredibly
+    important. See Wegner (1997) and Hewitt (2007).
+
+    We take the perspective that a Turing machine is an information processing
+    device — in the language of Weiner or Shannon which are close enough for our
+    purposes to each other — and being a closed system, is a leaky information
+    processing system.
+
+    A Turing machine receives messages (input placed on the tape before running
+    the machine) and emit messages (the state of the tape on completion). If the
+    action of the Turing machine is invertible, that is the Turing machine
+    defines an isomorphism from its input set to its output set, then the signal
+    of output messages have the same entropy as the input. In all other cases,
+    the entropy of the output must be strictly greater than that of the input. In
+    other words, information is lost in interpretation by a Turing machine.
+
+    This loss of information is independent of context. More precisely,
+    information is lost no matter the context from which you define it. But the
+    degree of loss may vary.
+
+    But the Earth is not a closed system, and neither is anything on it except in
+    certain, very artificial, situations.
+
+    When you look up a word in a dictionary, you are reducing entropy. If that
+    dictionary is on a website then the system of you, plus computer program,
+    plus intervening network experiences an increase in information. But
+    communication requires energy, which disipates as heat, so there is no
+    violation of thermodynamics.
+
+    This leads us to the inescapable conclusion that communication creates open
+    systems and so a system of communicating components is something strictly
+    more than a Turing machine.
+
+    This observation isn't new, but it's widely dismissed as irrelevant. I hope
+    to convince you otherwise.
+*** Perspective: Special Relativity
+    - Note taken on [2022-09-24 Sat 18:47] \\
+      Originally dates [2020-05-12 Tue] in my notes
+    On an interstellar scale, consensus is not possible in any practical
+    fashion.
+
+    This is a trivial consequnece of special relativity. It is not only
+    possible, but necessary, that different observers will observe different
+    sequences of events. Those sequences will often contradict each other in the
+    short term, but both observers will nevertheless be correct.
+
+    So what can we do? Current solutions like paxos, raft, etc. work by builing
+    consensus via coordinated communication. They guarantee that eventually
+    everyone will agree, but they make no promises (because they can't) about
+    how long it will take for such consensus to arise.
+
+    Spanner, and other "reengineer the universe" style solutions build a frame
+    of coordinates that spans the entire planet and using atomic clocks and gps
+    impose a total order on all events happening on the earth. Again, this is a
+    form of consensus in the long run, with a blind spot trailing ever so
+    slightly into the past. If you're running a server in Singapore, and you are
+    sent messages from Sydney and London at about the same time (though
+    according to the atomic clocks, the London message was first) you'll
+    probably receive the packet from Sydney first, and so there will be an
+    interval of time in which you are inconsistent with the total ordering of
+    the system simply because messages travel at finite speed.
+
+    On the earth this isn't much of a problem, since that trailing blind spot is
+    from about a second ago to now. That's not much time. But what happens if we
+    expand the network to include the moon? Mars? The moon is over a second away
+    at the speed of light. Mars can be more than twenty minutes away. That means
+    that the trailing blind spot will be at least 45 minutes for a network
+    spanning the earth and mars if it only takes one round trip to agree to
+    things. If you have a spanner like system, you can broadcast and get best
+    effort consistency in 20 or so minutes, but you won't know they know until
+    at least one round trip.
+
+    Let's make it harder. Imagine we send a ship to another star. If that star
+    is 60 light years away, then as the ship travels, round trip time will
+    increase until it reaches 120 years. If you won't get acknowledgement of
+    delivery for over 100 years, then you may as well never get it. Concensus
+    becomes completely impossible, all that can be done is informing.
+
+    So instead of tcp, we'll simply need to send a continuous stream of data and
+    listen to one coming back.
+
+    Now imagine this ship comes back. It's own web will have diverged
+    significantly from ours, but because of the streaming updates back and forth
+    there will be cross links. Once the two webs are brought physically close
+    together it should be as if they were never apart. The network needs to be
+    amorphous in this sense that pieces can break off, evolve in isolation, and
+    then reconnect.
+
+    If the network is robust — at the highest level of content, not just at the
+    wiring level — to continuous changes in topology, then being connected all
+    the time will become a less pressing concern. Going through a tunnel
+    shouldn't break anything, being cut off from the outside world by censors
+    should be equivalent to a lag in updates, instead of the current situation
+    of only having access to anything when you find a hole in the firewall.
+
+*** Interpretation all the way down
+**** Notes adapted from [2020-01-06 Mon] on paper
+     Data is not a well defined term and I'm going to try and avoid using it for
+     the moment. Is this possible?
+
+     What is an inscription on a tablet? Let's call it a message for lack of a
+     better word. How do we knoe it's a message and not a natural phenomenon? or
+     an unlikely outcome of random noise? We don't. Intention comes right from
+     the start: a message is something intended to be read. Intended to convey
+     meaning. The author of a message meant something by it.
+
+     So we need another concept for an artifact — an inscription, a shape, a
+     sound, &c. — that *might* be a message, or might not. For now, let's call
+     this a text. Not a good word, but I've got nothing else; signal, sign,
+     etc. are loaded terms nowadays.
+
+     Can anything be a message? If so, do we even need a word for something that
+     might be one?
+
+     A message only exists if a producer and a receiver share enough context to
+     make communication possible.
+
+     So before we can have messages, we need agents with the intent to
+     communicate.
+
+     Two sentient agents can communicate. This is an observation, not a
+     definition.
+
+     But what does it mean to communicate with a machine?
+
+     If you send a message (from your point of view) to a machine and it behaves
+     in an expected manner, then you can say that the machine interpreted your
+     message correctly. Or maybe that with respect to that interpreter (machine),
+     your message is code.
+
+     A message that means something to someone is different from one which does
+     not.
+
+     We should likely relax this condition to say that if you send a message to a
+     machine and it does *something*, then it interpreted your message (somehow).
+
+     Correctness is not a notion applicable to communication in general.
+
+     Is correctness essential to the notion of code? The rationalist tradition
+     would say yes, after all the word 'code' orginally referred to a collection
+     of laws in old French (though prior to that, codex just means 'book' in
+     Latin).
+
+     Most computer code is not correct in the sense of being not even wrong. So I
+     think it's a mistake to equate computer code with formal systems of any kind
+     when thinking of practice.
+
+     What do we call a message that you can interpret meaningfully? Meaningful
+     (to you)?
+
+     It's important to consider that the meaning intended by the producer of a
+     message, and the meaning interpreted by the receiver need not have anything
+     to do with one another. In fact one end, or the other (or both?) might not
+     assign any meaning at all.
+
+     So Barthes put it too strong: the author isn't dead, they're just another
+     reader (of their own message).
+**** Theory
+     Data is the medium in which computation can occur.
+
+     A message which causes an interpreter to do something is code. That
+     something might be a side effect, or it might be a computation.
+
+     It's important to see that from this point of view, computation is just
+     another kind of effect we can have on the world. It is a form of doing. It
+     just has much nicer mathematical structure than most other kinds of effect.
+
+     That which is done by an interpreter, given a message, *is*, in some sense,
+     the meaning assigned to that message by an interpreter. Meaning is use.
+
+     Literal data are precisely those messages which pass through an interpreter
+     without causing it to do anything. Semantic roughage. Sort of. Think of the
+     machine that draws letters in the sand. There is a sense in which unicode
+     chars are literal data, but equally a sense in which they are code. This is
+     a point for further consideration elsewhere.
+
+     For now, let's just consider literal data as a subset of (digital) data.
+
+     Notably, since literal data passes through an interpreter without causing it
+     to do anything in particular, literal data is not code, and so the
+     interpreter assigns no meaning to it.
+
+     (Literal) Data is purely syntactic. Semantics are external to it.
+
+     The fact of the existence of literal data says something about a shared
+     structure between the data and the interpreter which emits it unchanged.
+
+     Note that the meaning that the producer of code assigns to it does not
+     necessarily have anything to do with the meaning assigned to it by a given
+     interpreter (though it may be important to others).
+
+     A symbol, say `identity`, is a message that refers to a form, that is, to
+     another message `(fn [x] x)`.
+
+     A form which is intended to invoke a function referred to by a symbol, say
+     `(identity 1)`, indicates by the grammatical position of `identity` —
+     invocation position — that `identity` is in turn to be treated as an
+     interpreter.
+
+     (eval (identity 1)) <=> (apply (eval identity) (map eval [1]))
+
+     The repl is an interpreter that interprets some parts of messages as
+     interpreters and other parts as messages to those interpreters.
+
+     But this process must bottom out. At some level, messages must *be*
+     interpreters.
+
+     Put differently, messages, being data, are inert. S-expressions, being
+     *literal data* to the lisp reader are, furthermore, devoid of
+     meaning. Meaning is assigned to the sexps by `eval`, which is the most
+     important interpreter in a lisp.
+
+     Code by itself — be it a string, or a forest of sexps — does nothing, means
+     nothing. It is inert. It must be interpreted.
+
+     `eval` in lisp serves two distinct purposes. It provides the grammar of
+     lisp, which is to say that it decides which forms are the be considered
+     interpreters, and which messages, and it transforms inert code into an
+     active interpreter.
+
+     This initial spark is magical. It is the difference between computers and
+     all media that came before.
+
+     This vivification of inert code into a reactive mechanism is not akin to
+     compilation. A compiler is, in principle, a pure function that transforms
+     one representation of computer code (text, sexps, etc.) into another (byte
+     code, machine code, et al.).
+
+     Compilation is often part of the action which transforms text into a living
+     process, but it's not the magic.
+
+     I keep saying magic, but really it's rather banal. At some point, you reach
+     circuits which interpret messages directly into physical activity. You don't
+     need interpreters all the way down. It just looks that way to people raised
+     in modern platforms like the web.
+
+     Does `eval` have to be singular? Is there any reason to restrict the set of
+     meta-interpreters, the set of language defining interpreters, to a single
+     thing?
+
+     Why can't a single runtime platform accept messages in any format, so long
+     as those messages are tagged in some way such that the runtime can deduce
+     how to interpret them?
+**** Practice
+     What I'm calling an interpreter might better be called an executor, but
+     interpretation has a meaning beyond Steele and Sussman's art.
+
+     The difference between compilers and interpreters, for our purposes, is that
+     compilers are pure functions, that is they are computations that operate in
+     and on data, whereas interpreters take action based on their input. Real
+     action in the (possibly digital) world.
+
+     In particular, a compiler itself needs to be interpreted, it's just a
+     program.
+
+     This is obfuscated because compilers are generally executables, which just
+     means that the operating system knows how to interpret them.
+
+* A Language to Play with Theories
+** Desiderata
+   What do I want from an ideal language for playing with computing machinery?
+** Skepticism
+   Which structures and patterns are useful, and which are just habit?
+*** Dynamic Linking
+    I got this idea originally from the [[https://www.unisonweb.org/][Unison]] language, but this is my
+    interpretation and any faults herein are my own.
+
+    A codebase is shared mutable state between developers. Uncoordinated
+    changes by different developers, or by individuals at different points in
+    time are the cause of a large class of bugs (git catches some of these as
+    merge conflicts, but not all).
+
+    I want to be able to modify code without fear of breaking anything I don't
+    touch. If no existing code can change, then no existing functionality can
+    break.
+
+    In particular, this means that dynamic linking is unacceptable. The promise
+    of dynamic linking is that bug fixes, security updates, and performance
+    boosts will automagically trickle into your code as your dependencies
+    release minor updates. The problem, of course, is that along with these
+    come new bugs and breaking changes. We have a parallel with iatrogenics
+    that puts us at the mercy of the gung-ho.
+
+    Let's not forget that the real impetus that drove dynamic linking to become
+    the standard was the fact that old machines didn't have enough drum or core
+    space to hold much, so pieces had to be continually swapped in and
+    out. That just isn't the case anymore.
+
+    There's a synthesis of static and dynamic linking that I think gives us the
+    best of both worlds. Given a reference by value scheme we can link code just
+    as we do now, allowing shared libraries and small updates, but the links
+    aren't symbols to be dumbly matched at runtime, they're unique references to
+    specific bits of code that change if the code changes (think infinitely long
+    hashes).
+
+    But we still have to address the issue of updates. Security updates aren't
+    going to go away anytime soon, so there needs to be a way to update large
+    codebases wholesale.
+
+    But given these references are explicit, a tool can scan and index
+    them. Thus given a new version of some function, say SSL_do_handshake from
+    openssl, the tooling can scan the entire codebase and say "These 7,453
+    lines of code will be modified by this update, do you want to continue?".
+
+    That sounds horrible, but is it worse than changing those 7000 loc and not
+    even knowing it?
+*** The Stack
+    The modern callstack and the prevalence of stack machines when defining
+    languages has its origin in Dijkstra's Notes on Structured Programming
+    (1970).
+
+    Dijkstra's goal was to achieve a one to one correspondance between the text
+    of the program and the instructions being executed in the hardware. He
+    managed to do this with extreme elegance using just a stack and a couple of
+    counters. It signaled certain death for the goto statement.
+
+    And the stack works brilliantly for sequential, synchronous code. It works
+    so well that stacks ops are part of the instruction set of modern chips, and
+    students leave university thinking that stacks are an inherent part of
+    programming languages.
+
+    The problem, though, is that they suck at concurrency, especially in the
+    face of asynchronicity.
+
+    The problem is obvious if you ever worked in javascript pre ES6. It's
+    also apparent in Rust's red/blue function kerfuffle when you realise the
+    difference between red and blue is that one uses the stack and the other
+    uses a scheduler / event loop.
+
+    The program always needs to know where to go next, in particular functions
+    need to know where to return to, but do we need to store this information on
+    the stack?
+
+    React is playing with the idea of virtualising the stack because when you
+    have hundreds of ui tasks going on asyncronously and you want to interrupt,
+    reorder, and resume them, when you need to modify or cancel them on the fly,
+    then you need a different data structure.
+
+    The early versions of Akka had a great hack to use the stack where is was
+    beneficial and then blow it away: an actor would proceed like a normal
+    function calling functions, until it hits a send call. Send would just build
+    the current continuation, and throw an exception containing that
+    continuation, the message, and the receiver. The scheduler catches that
+    exception, queues the message and loops back. I always admired the
+    cleverness of this approach.
+
+    But concretely. I hypothesise that if we rethink the stack abstraction we
+    can have asyncronous code that looks synchronous. Async/await without the
+    keywords and dual nature.
+
+    It should also help optimisers that want to reorder larger chunks of a
+    program, or automatic parallelisation.
+*** Function, Proceedures, Routines, and Coroutines
+*** Start counting at 1
+    The idea that real programmers start counting at zero comes from two
+    related conflations. A conflation of cardinal and ordinal numbers, and a
+    conflation of lists with allocated memory.
+
+    When we learn to count in school we learn to start at 1. This is the first
+    wug, this is the second wug, and so on... There is no zeroeth wug, but
+    there can be zero wugs. That's the distinction between cardinality (the
+    number of things in a set) and ordinality (the rank of something in a
+    queue).
+
+    Are array indicies cardinal numbers or ordinal numbers? That, like so much
+    else in life, depends on the context. If you know that an array is a pair
+    and you want to access the second element, then the index is ordinal. We
+    want the second element, not the first element as there is no zeroeth
+    element.
+
+    But arrays aren't just lists. In modern computer architectures, memory is
+    abstracted away as an enormous array. Everything you store has an address
+    in this array, and we have to perform computations to find those addresses
+    (which are really indicies).
+
+    Say you have a pointer p to a struct {int32, int32, String} where we know
+    that the second int is the length of the String (char array). The length of
+    the string, say n,  is \*(p+4) and the String itself is n bytes starting at
+    \*(p+8).
+
+    Now we're doing arithmetic with array indicies. So in this case we're
+    treating array indicies as cardinal numbers (you can define arithmetic on
+    ordinals, but only set theorists ever do that).
+
+    So why do real programmers start counting at zero? That's because if you're
+    treating indicies as cardinal numbers, then you want the first thing (no
+    offset) to be \*(p+0).
+
+    Take Dijkstra's famous argument regarding for (i=0; i<N; i++) {.... This
+    basically avoids having to fiddle with end conditions when concatenating
+    arrays. Again this is about computing indicies and offsets.
+
+    In the language being designed, there are only names and values. There are
+    no explicit places. You can't say "find where x is stored and then give
+    bytes ...", you can only refer to values that you know, or things whose
+    names you know.
+
+    Pointer arithmetic is out, so the need to facilitate it is gone.
+
+    As for Dijkstra's example, modern languages don't use indicies to walk
+    arrays anymore. All significant languages now provide a facility based on
+    R.S. Bird's constructive programming theory. That is they use fold,
+    reduce, iterators, whatever you want to call it. You should never be
+    walking over a list with for (i=0; i<N; i++), so Dijkstra's argument is
+    nowadays moot.
+
+    Essentially, if you have a list of things, then they have an order, and
+    that order is ordinal. You want the first, second, third, ... elements.
+
+    If you need to compute an index nowadays then what you're really doing is
+    constructing an indirect reference. The order of the things referenced is
+    arbitrary and extrinsic. That means you aren't really talking about lists
+    at all, you're talking about maps. Using arrays is an implementation concern
+    based on current architectures.
+
+    Confounding what we want to do with what we (incidentally) have to do
+    creates inertia which prevents improvement of both our languages and our
+    hardware. Linear RAM isn't the only way to build computers, but we have a
+    feedback loop between low level programming languages which get performance
+    by assuming things about the hardware which binds the hardware designers to
+    meet the languages' expectations so that they stay fast which binds the
+    language designers to make assumptions about hardware ... ad nauseum.
+
+    Only put data in lists if it has an order which is important in some
+    way. If order is arbitrary or otherwise unimportant, use a set or a map.
+**** references
+     Dijkstra (find the essay)
+     Bird, constructive programming
 * Potentially Useful Reading
   Emphasis on potential
 ** https://arxiv.org/abs/2206.01041
