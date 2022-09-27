@@ -6,6 +6,22 @@ surface appear to be related at all. I think they are, but that might change.
 #+TOC: headlines 2
 
 * An Informal Theory of Computation
+** Note on Stupid Names
+   Gregory Bateson gave the advice (I'm paraphrasing): when trying to think
+   about things you don't understand and inventing concretions or abstractions
+   that may or may not exist, may or may not be useful, to help yourself
+   understand, give these concepts names and define them to the extent you can
+   so that you can play with them; it's almost impossible to think deeply about
+   something you can't name.
+
+   But don't give them well thought out, expressive names. Don't give them names
+   that might mislead others — or you yourself — into thinking that these are
+   real and important. Give them stupid names so that you can discuss them
+   without ever forgetting that they're provisional likely bound for the
+   chopping block.
+
+   (Cf. his notion of ~ethos~, Experiments in Thinking about Observed
+   Ethnological Material)
 ** What is this?
    What is the purpose of xprl? What are the assumptions underlying its design?
    What's the theory of computation underlying its programming model? What
@@ -675,6 +691,13 @@ surface appear to be related at all. I think they are, but that might change.
 
     It should also help optimisers that want to reorder larger chunks of a
     program, or automatic parallelisation.
+
+    Cf. Interlisp's "spaghetti stack" (actually a tree), which was manipulable
+    as a first class data structure at runtime, allowing coroutining,
+    continuations, backtracking, and other control flow operations to be
+    implemented as library features. Try adding [[https://wiki.openjdk.org/display/loom/Main][coroutines to Java]]...
+
+    Cf. core.async
 *** Function, Proceedures, Coroutines, and Transducers
     Are function a good fundamental unit for programming?
 
@@ -926,7 +949,7 @@ surface appear to be related at all. I think they are, but that might change.
      Dijkstra (find the essay)
      Bird, constructive programming
 * Potentially Useful Reading
-  Emphasis on potential
-** https://arxiv.org/abs/2206.01041
+ - https://arxiv.org/abs/2206.01041
+ - [[https://ia802307.us.archive.org/7/items/bitsavers_xeroxinternceManualOct1983_52302609/Interlisp_Reference_Manual_Oct_1983.pdf][Interlisp Reference Manual]]
 * Copyright
   © 2022 Thomas Getgood
