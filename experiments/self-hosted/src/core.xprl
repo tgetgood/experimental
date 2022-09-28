@@ -1,0 +1,101 @@
+;; `intern` takes a form and interns it in the global buzzpop context.
+;; It returns a unique ref that will resolve to the given form *forever*.
+;; TODO: Is that really possible?
+;; Sort of. There needs to be a chain of context stretching from every ref, all
+;; the way back to some primordial common ancestor. This is not Universal. That
+;; would just be lying to ourselves. How does this context work?
+(def intern
+  (fn [form]
+    ;; N.B. This has to be an emission because it has to cause a side effect
+    ;; (somewhere).
+    ;;
+    ;; *buzzpop* is not a global variable. There are no global
+    ;; *variables. Rather, `intern` must be defined with one input channel
+    ;; (here `*in*`) and three output channels (`*buzzpop*`, `*err*`, and
+    ;; `*out*`). Cf. unix pipes.
+    ;;
+    ;; The argument `form` arrives on `*in*` and the return value is is sent to
+    ;; `*out*` which in this context is the stack return pointer. Thus we need
+    ;; to pass ~our~ return pointer along with the form to be interned to
+    ;; buzzpop so that it can emit a value to the right place and our caller
+    ;; gets a return value as expected.
+    ;;
+    ;; When the program starts, these channels must be bound to something as
+    ;; part of the boot process. Remember, computation and communication are two
+    ;; separate layers of the system.
+    (emit *buzzpop* {:intern form
+                     :hash-ch *out*})))
+
+;; TODO: Data structures and the core library for manipulating them
+;; TODO: llvm bitcode generation (JIT compiler)
+
+;; TODO: execution context (frames, sort of) as a first class thing with fns to
+;; maniputate it.
+
+;;;;; REPL
+
+;; Below I'm using the var `context` to mean the set of symbols that have
+;; meaning at a point in a program. Should I also include locals and return
+;; locations in that context?
+;;
+;; Units of code (flubs for now) define names of channels to which they might
+;; emit. Conventional lisp return (final expr of form) is just sugar for `(emit
+;; *out* ret-val)`, where *out* is generally bound to what would be the return
+;; pointer of the call stack, but can be redirected.
+;;
+;; More generally flubs could have an *err* channel which by default prints on
+;; stderr, or recursive channels to send messages to future invocations of
+;; themselves, thus retaining state without mutation.
+;;
+;; Of course that brings up thread locality, which in this case is a matter of
+;; wiring. I need to see wiring in action before making concrete assumtions
+;; about it.
+
+(def read
+  (intern
+   (fn [until context stream]
+     (let [stream (drop-while whitespace? stream)
+           c (first stream)])
+     (when (not= until c)
+       ((get dispatch-table c read-token) until context stream)))))
+
+(def read-coll
+  (intern
+   (fn [type _ context stream]
+     (loop [v (empty type)
+            s (rest stream)]
+       (let [[expr tail] (read (end-char type) context s)]
+         (if (= tail s)
+           [v (rest tail)]
+           (recur (conj v expr) tail)))))))
+
+(def read-token
+  (intern
+   (fn [until context stream]
+     (let [[head tail] (split-at (breaker until) stream)]
+       [(resolve context head) tail]))))
+
+(def resolve
+  (intern
+   (fn [context token]
+     (cond
+       (number? token) (parse token)
+       (keyword? token) (read-keyword token)
+       ;; Resolve symbols at read time! Nothing changes under your feet.
+       (symbol? token) (resolve-symbol context token)
+       :else (emit *err* "unknown atom type.")))))
+
+(def eval
+  ;; REVIEW: This is redundant. We should have a macro that interns a form in
+  ;; buzzpop and then binds a name to that ref in one step. Def should probably
+  ;; do that by default.
+  (intern
+   (fn [context form]
+     (cond
+       ;; REVIEW: I'm assuming auto currying for concision. I don't yet know if
+       ;; we want that in the language
+       (list? form) (apply (eval context (first form)) (map (eval context) form))
+       (value-atom? form) form
+       (symbol? form) (symbol-lookup form)
+       (coll? form) (into (empty form) (map (eval context) form))
+       :else (emit *err* "Unknown ")))))

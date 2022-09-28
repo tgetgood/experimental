@@ -1,0 +1,86 @@
+This is a scratchpad of what might feel like to program in xprl.
+
+Initially I'm writing the language in itself to make sure it's sufficiently
+thought out to do something useful.
+
+Bootstrapping is going to be fun.
+
+* Questions
+
+** [2022-09-28 Wed 12:26] def, intern, and purity
+   If there are no side effects, how does one implement `def`?
+
+   You don't. We need side effects somewhere, but they have to be constrained to
+   the communication layer.
+
+   I think of the communication layer as a hypergraph (though I keep coming back
+   to the idea of using symplectic topology to analyse it, so maybe simplicial
+   complexes are a better foundation...) where the edges are the emission
+   channels (one writer, potentially many readers) and the nodes are either
+
+   1) Pure computations which commence when a message is available on each input
+      channel and terminate with a map from channels to lists of messages.
+   2) Sources, which take no input, but emit (potentially infinitely many)
+      messages to their output channels.
+   3) Sinks, which receive messages but emit nothing.
+
+   Sources and sinks are the edge conditions of the system. Sources allow
+   repeatable interaction with things like time, PRNGs, etc. by logging the
+   messages.
+
+   Sinks, on the otherhand are the escape valve that lets us do anything we have
+   to do. Sinks have to able to do anything, otherwise we can't implement the
+   language, but they also need to be heavily restricted most of the time,
+   otherwise we'll never be able to understand what a program might do.
+
+   To implement `intern`, we would need a sink/source pair where the sink
+   receives messages saying "merge this form into the trie", and the source
+   emits messages saying "Ref has been merged into tree". The actual magic lives
+   in the gap between sink and source.
+
+   Sending messages over a network is the same sort of proposition. We need a
+   sink that takes request data, creates sources which will eventually emit
+   reponse data (or errors), sends those new sources somewhere, then sends the
+   request and sets up the response listeners.
+
+   It seems painfully intricate and potentially a point of failure. But I hope
+   that pushing these details to the edge of the system will make the centre
+   much easier to manipulate and reason about. Time will tell.
+
+** [2022-09-28 Wed 12:42] Multimethods and static linking
+   The biggest failing point of multimethods, in my experience, is that they are
+   global mutable variables, so suddenly the behaviour of your program depends
+   upon the order in which code modules get loaded.
+
+   Ultimately it's unavoidable that the compiler has to know about the code you
+   want to call before it can emit the code for the call.
+
+   My solution (at present) is to make it so that polymorphism is restricted to
+   the set of methods known to the reader when the code making the recursive
+   call is read. That way the developer can inspect the set of possible methods
+   (fixed), and make sure the one they expect is present. The actual dispatch
+   still happens at runtime, but the choices are fixed at dev time. Incidentally
+   it should also be possible for the developer to add annotations reducing the
+   size of the set of possible implementations to 1, thus ensuring the jit will
+   insert a direct call, when that's needed.
+
+   The two layers of buzzpop should make this simple to implement. Every
+   concrete method is interned in the form trie, but when a name is overridden,
+   one of two things must happen.
+
+   1) If the name is known to be a simple indirection, then the name trie gets
+      updated, and you need to use time travel to find what the name used to be
+      for things read in in the past.
+   2) If the old and new versions of the name point to indirect indirections,
+      then we can merge those indirect indirections. Note that the trie is still
+      updated with history so that previous versions of the dispatch table can
+      be referred to. This allows one symbol to point to different sets of
+      methods depending on the relative points at which the references and
+      definitions of that symbol are read.
+
+   That sounds absurdly complicated. And it is. But that complication is
+   inherent in the problem of building an intertwingled dynamic system by
+   linearly scanning source files.
+
+   One of my core goals is to prevent the programmer from being able to lie to
+   themselves about what they do and do not know.

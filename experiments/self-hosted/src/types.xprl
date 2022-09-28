@@ -1,0 +1,48 @@
+(def defbits
+  ;; This is inspired by Julia's bits types
+  ;;
+  ;; Whereas in Rust, the lowest level construct is the struct, in julia you
+  ;; give names to clumps of bits and then build structs out of those.
+  ;;
+  ;; The advantage of this approach is that you don't need special annotations,
+  ;; macros, etc. to create structs with C memory layout vs Rust standard
+  ;; layout, etc., you just use the same bits types in different structs (with
+  ;; different padding, stride, offset, and so on).
+  ;;
+  ;; I also have dreams of implementing something like erlang's UBF with single
+  ;; byte inline caching for inter machine communication. That's another day's
+  ;; problem though.
+  )
+
+(def defstruct)
+
+(def defabstracttype)
+
+;; Portability is going to be fun...
+(defbits u64 64)
+
+(defstruct v32
+  u64 32 {:offset 0 :padding 0})
+
+(defabstracttype Number)
+(defabstracttype Integer Number)
+
+(defabstracttype Vector)
+
+(defabstracttype PersistentVector Vector)
+
+(deftstruct PersistentVectorNode PersistentVector
+    children v32
+    count Integer)
+
+(defstruct PersistentVectorLeaf PersistentVector
+    elements v32)
+
+
+;; REVIEW: With clos polymorphism, we don't need reified protocols, nor should
+;; we implement methods inside type definitions, since the methods depend, in
+;; general, on multiple types.
+;;
+;; But reified protocols could be useful for communication. We could auto
+;; generate predicates. What about trait matching? Is that useful for our
+;; purposes?
