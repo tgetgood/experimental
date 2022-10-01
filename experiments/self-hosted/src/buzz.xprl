@@ -1,0 +1,39 @@
+;; `intern` takes a form and interns it in the global buzzpop context.
+;; It returns a unique ref that will resolve to the given form *forever*.
+;; TODO: Is that really possible?
+;; Sort of. There needs to be a chain of context stretching from every ref, all
+;; the way back to some primordial common ancestor. This is not Universal. That
+;; would just be lying to ourselves. How does this context work?
+(def intern
+  (fn [form]
+    ;; N.B. This has to be an emission because it has to cause a side effect
+    ;; (somewhere).
+    ;;
+    ;; *buzzpop* is not a global variable. There are no global
+    ;; *variables. Rather, `intern` must be defined with one input channel
+    ;; (here `*in*`) and three output channels (`*buzzpop*`, `*err*`, and
+    ;; `*out*`). Cf. unix pipes.
+    ;;
+    ;; The argument `form` arrives on `*in*` and the return value is is sent to
+    ;; `*out*` which in this context is the stack return pointer. Thus we need
+    ;; to pass ~our~ return pointer along with the form to be interned to
+    ;; buzzpop so that it can emit a value to the right place and our caller
+    ;; gets a return value as expected.
+    ;;
+    ;; When the program starts, these channels must be bound to something as
+    ;; part of the boot process. Remember, computation and communication are two
+    ;; separate layers of the system.
+    (emit *buzzpop* {:intern form
+                     :hash-ch *out*})))
+
+(def def
+  (fn
+    ([sym ^Ref ref]
+     (emit *name-map* {:sym sym :ref ref}))
+    ([sym form]
+     (emit *name-map* {:sym sym :ref (intern form)}))))
+
+(def name-map
+  (fn ^{:in [*name-map*]} [m]
+    (fn ^{:out [*name-map*]} [{:keys [sym ref]}])
+    ))

@@ -757,7 +757,8 @@ surface appear to be related at all. I think they are, but that might change.
 *** The Stack
     The modern callstack and the prevalence of stack machines when defining
     languages has its origin in Dijkstra's Notes on Structured Programming
-    (1970).
+    (1970). (Cf. ALGOL 60, Interlisp-D, Forth,... Dijkstra didn't invent the use
+    of stacks, but rather the modern paradigm of stack traces).
 
     Dijkstra's goal was to achieve a one to one correspondance between the text
     of the program and the instructions being executed in the hardware. He

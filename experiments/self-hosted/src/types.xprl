@@ -1,18 +1,16 @@
 (def defbits
-  ;; This is inspired by Julia's bits types
+  ;; This is inspired by Julia's bits types.
   ;;
-  ;; Whereas in Rust, the lowest level construct is the struct, in julia you
-  ;; give names to clumps of bits and then build structs out of those.
+  ;; Hardware only knows bitstrings, so they must be first class concepts.
   ;;
-  ;; The advantage of this approach is that you don't need special annotations,
-  ;; macros, etc. to create structs with C memory layout vs Rust standard
-  ;; layout, etc., you just use the same bits types in different structs (with
-  ;; different padding, stride, offset, and so on).
-  ;;
-  ;; I also have dreams of implementing something like erlang's UBF with single
-  ;; byte inline caching for inter machine communication. That's another day's
-  ;; problem though.
+  ;; These are not locations to be created, but rather tags that can be attached
+  ;; to binary values which tell later parts of the program what to do with
+  ;; them (compiler, optimiser, etc.)..
   )
+
+;; TODO: How do we work with variable length encodings? Even refs have variable
+;; length, so we really want to be able to store them inline until they don't
+;; fit...
 
 (def defstruct)
 
@@ -22,7 +20,7 @@
 (defbits u64 64)
 
 (defstruct v32
-  u64 32 {:offset 0 :padding 0})
+  u64 {:count 32 :offset 0 :padding 0})
 
 (defabstracttype Number)
 (defabstracttype Integer Number)
@@ -32,8 +30,12 @@
 (defabstracttype PersistentVector Vector)
 
 (deftstruct PersistentVectorNode PersistentVector
-    children v32
-    count Integer)
+  ;; inlining one struct into another is, in general, a horrible idea, but
+  ;; sometimes a great optimisation.
+  children v32 {:inline true}
+  count Integer ;; Arbitrary precision integer, at the end because we don't know
+                ;; statically how long it is.
+  )
 
 (defstruct PersistentVectorLeaf PersistentVector
     elements v32)
@@ -46,3 +48,80 @@
 ;; But reified protocols could be useful for communication. We could auto
 ;; generate predicates. What about trait matching? Is that useful for our
 ;; purposes?
+
+(defn first
+  ([^v32 v]
+   ;; REVIEW: inline assembly... which means there is pointer arithmetic? The
+   ;; index 1 stuff is going to be annoying.
+   (load (getelementptr v 0)))
+  ([^PersistentVetorLeaf v]
+   (first (:elements v)))
+  ([^PersistentVectorNode v]
+   (first (first (:children v)))))
+
+;; TODO: Define hash maps so that we can implement intern
+
+;;;;; Binary
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Binary data can be manipulated as a sequence of digits.
+;; Representations: 0b1001, 0xa416 (if length = 0 mod 4 (8?))
+
+(deftype bit
+    ;; A single bit.
+    )
+
+(deftype bitstring
+    ;; A sequence of bits.
+    ;;
+    ;; Note that it does not have to align to bytes and may contain significant
+    ;; zero bits.
+    )
+
+(defn take [n ^bitstring x]
+  ;; Can be optimised to something like:
+  (bits (>> (int x) (- (count x) n)))
+
+  ;; But logically a bitstring is a vector of bits.
+  )
+
+(defn drop [n ^ bitstring x]
+  )
+
+(defn bits [x]
+  ;; Returns the binary behind the value `x` as a bitstring.
+  ;; Will be padded to the full size of `x`.
+  )
+
+(defn aget [x n]
+  ;; N.B.: This does assume `x` is array-like in a sense not currently being
+  ;; enforced.
+  ;; We can infer the type of the elements of `x` most of the time and fall back
+  ;; to reflection when that fails.
+  (take (stride x) (drop (* (dec n) (stride x)) (bits x))))
+
+(defn first [^v32 v]
+  ;; Tada!, no inline assembly, no value/reference confusion in core code, much better.
+  ^u64 (take (:bits u64) (bits v)))
+
+(defn nth [^v32 v n]
+  ;; 1 indexed since this is an ordered random-access collection, not a cubby
+  ;; corner.
+  ^u64 (take (:bits u64) (drop (* (dec n) (:bits u64)) (bits v))))
+
+;; HAMTs are going to be a nuissance in this respect since they're tries of
+;; cubbies.
+
+;; Why shouldn't a symbol be able to start with a number?
+(defn 0nth [^v32 v n]
+  (nth v (inc n)))
+
+;;;;; Note on memory safety
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Segfaults shouldn't be a worry here so long as we remember that bitstrings
+;; are sequences of bits, not locations in memory.
+;;
+;; `(take 64 (drop 64 ^u64 x))`, does not read the word after `x` because `x` is
+;; a value, not a pointer. After dropping 64 bits of a 64bit word, we get an
+;; empty bitstring, i.e. the command above returns no bits, or in the current
+;; convention of the system, doesn't return at all. It simply aborts, sending a
+;; message to *err*, which can be seen as a fibre-local panic in most cases.
