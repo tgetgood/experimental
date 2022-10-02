@@ -1,4 +1,4 @@
-(def defbits
+(defmacro defbits [name size]
   ;; This is inspired by Julia's bits types.
   ;;
   ;; Hardware only knows bitstrings, so they must be first class concepts.
@@ -6,7 +6,13 @@
   ;; These are not locations to be created, but rather tags that can be attached
   ;; to binary values which tell later parts of the program what to do with
   ;; them (compiler, optimiser, etc.)..
-  )
+
+  ;; Does it matter if something is interned at macroexpand time or runtime?
+  ;; It shouldn't...
+  `(def ~name
+     (intern
+      ;; Definitely will need more info here.
+      {:bits ~size})))
 
 ;; TODO: How do we work with variable length encodings? Even refs have variable
 ;; length, so we really want to be able to store them inline until they don't
@@ -20,7 +26,7 @@
 (defbits u64 64)
 
 (defstruct v32
-  u64 {:count 32 :offset 0 :padding 0})
+  [u64 {:count 32 :offset 0 :padding 0}])
 
 (defabstracttype Number)
 (defabstracttype Integer Number)
@@ -38,7 +44,7 @@
   )
 
 (defstruct PersistentVectorLeaf PersistentVector
-    elements v32)
+    ^v32 elements)
 
 
 ;; REVIEW: With clos polymorphism, we don't need reified protocols, nor should
@@ -97,6 +103,7 @@
   ;; enforced.
   ;; We can infer the type of the elements of `x` most of the time and fall back
   ;; to reflection when that fails.
+  ;; Hmm... What does reflection tell us about a bit string?
   (take (stride x) (drop (* (dec n) (stride x)) (bits x))))
 
 (defn first [^v32 v]
@@ -108,13 +115,6 @@
   ;; corner.
   ^u64 (take (:bits u64) (drop (* (dec n) (:bits u64)) (bits v))))
 
-;; HAMTs are going to be a nuissance in this respect since they're tries of
-;; cubbies.
-
-;; Why shouldn't a symbol be able to start with a number?
-(defn 0nth [^v32 v n]
-  (nth v (inc n)))
-
 ;;;;; Note on memory safety
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Segfaults shouldn't be a worry here so long as we remember that bitstrings
@@ -125,3 +125,25 @@
 ;; empty bitstring, i.e. the command above returns no bits, or in the current
 ;; convention of the system, doesn't return at all. It simply aborts, sending a
 ;; message to *err*, which can be seen as a fibre-local panic in most cases.
+
+;;;;; HAMTs
+
+;; HAMTs are going to be a nuissance in this respect since they're tries of
+;; cubbies.
+(defn nth-slot [^v32 v n]
+  (nth v (inc n)))
+
+(defn hash [x]
+  ;; Infinite lazy (cached) hash function.
+  ;; Where does it cache? pointer memoisation? Problematic.
+  )
+
+(defabstracttype FiniteMap)
+
+(defstruct MapEntry [key value])
+
+(defstruct PersistentArrayMap FiniteMap
+  [^Vector kvs])
+
+(defstruct PersistentHashMap FiniteMap
+  [^v32 elements count])
