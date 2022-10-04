@@ -6,26 +6,6 @@ surface appear to be related at all. I think they are, but that might change.
 #+TOC: headlines 2
 
 * An Informal Theory of Computation
-** Note on Stupid Names
-   Gregory Bateson gave the advice (I'm paraphrasing): when trying to think
-   about things you don't understand and inventing concretions or abstractions
-   that may or may not exist, may or may not be useful, to help yourself
-   understand, give these concepts names and define them to the extent you can
-   so that you can play with them; it's almost impossible to think deeply about
-   something you can't name.
-
-   But don't give them well thought out, expressive names. Don't give them names
-   that might mislead others — or you yourself — into thinking that these are
-   real and important. Give them stupid names so that you can discuss them
-   without ever forgetting that they're provisional likely bound for the
-   chopping block.
-
-   Note that Bateson said to use anglo saxon words for partially formed concepts
-   and resist the urge to coin new greek or latin logisms. I like to use
-   nonsense words or pet names. It keeps me honest.
-
-   (Cf. his notion of ~ethos~, Experiments in Thinking about Observed
-   Ethnological Material)
 ** What is this?
    What is the purpose of xprl? What are the assumptions underlying its design?
    What's the theory of computation underlying its programming model? What
@@ -601,6 +581,81 @@ surface appear to be related at all. I think they are, but that might change.
      This is obfuscated because compilers are generally executables, which just
      means that the operating system knows how to interpret them.
 *** Holons and Holarchy
+    On the surface this system looks a lot like smalltalk, and that's not
+    accidental.
+
+    A program is a collection of programs (or computers) which communicate by
+    sending messages to each other. That has a fractal beauty that is most fully
+    realised (in my opinion) in the metaobject protocol of CLOS.
+
+    Where I take issue with this approach is the freedom of communication. Any
+    unit A can send a message to any other unit B, so long as the programmer who
+    wrote A new a name which resolves to B at runtime. Names take the place of
+    symbols in linked object code; locations which introduce a disconnect
+    between what the programmer thinks they're saying and what the machine
+    thinks the programmer said.
+
+    There's also a defiance of physical reality. Communication by knowing a name
+    creates the illusion that all communication is equivalent, that any
+    component can equally well communicate with any other component. But that
+    isn't the case. Separate units running on CPUs and GPUs can't communicate
+    with complete freedom. Barriers need to be put in place which slows down the
+    computation, plus the cross talk latency is relatively high. The problem
+    gets worse as we start to distribute programs over networks.
+
+    Smalltalk was inspired by a biological metaphor, but in real life cells
+    communicate by chemical signals which are 1) non-specific: everybody nearby
+    hears every message (though not every cell exposed to a signal molecule
+    reacts) and 2) local: chemical gradients get weaker by the inverse cube of
+    the distance between cells. There are, of course, methods to extend this
+    (hormones in the circulatory system, impulses in nerve fibres) but
+    communication and coordination between distant cells is the exception,
+    rather than the rule.
+
+    So instead, I'm basing the design of this on what Koestler called holarchic
+    organisation.
+
+    Each flub (The word "object" used to be devoid of ideological baggage — and
+    I suspect that's why it was used — but that's no longer the case) receives
+    input on channels and emits output to channels. The flub has names for these
+    channels since they must be referred to, but no knowledge of what's on the
+    other side.
+
+    This gives a flub autonomy from within. Given a set of inputs, the flub will
+    do its thing, and that thing cannot be overridden or perverted from the
+    outside. But since the flub has no notion of where inputs come from or where
+    outputs go, when viewed from above it is fully subordinate to those "higher"
+    flubs which decide how to networks the channels of "lower" flubs together.
+
+    Notably this removes the need for a global name registry, or "phone book" by
+    which to route messages through the system. Flubs have references (by value)
+    ot other flubs, and connect them together, so names are only for the
+    programmer's benefit. They resolve statically from the source itself (in
+    context).
+
+    Applying this idea recursively down the the language primitives themselves
+    creates a nightmare not unlike dependency injection. I'm still looking for
+    an elegant escape hatch.
+** Note on Names
+   Gregory Bateson gave the advice (I'm paraphrasing): when trying to think
+   about things you don't understand and inventing concretions or abstractions
+   that may or may not exist, may or may not be useful, to help yourself
+   understand, give these concepts names and define them to the extent you can
+   so that you can play with them; it's almost impossible to think deeply about
+   something you can't name.
+
+   But don't give them well thought out, expressive names. Don't give them names
+   that might mislead others — or you yourself — into thinking that these are
+   real and important. Give them stupid names so that you can discuss them
+   without ever forgetting that they're provisional and likely bound for the
+   chopping block.
+
+   Note that Bateson said to use anglo saxon words for partially formed concepts
+   and resist the urge to coin new greek or latin logisms. I like to use
+   nonsense words or pet names. It keeps me honest.
+
+   (Cf. his notion of ~ethos~, Experiments in Thinking about Observed
+   Ethnological Material)
 * A Language to Play with Theories
 ** Desiderata
    What do I want from an ideal language for playing with computing machinery?
@@ -1061,6 +1116,8 @@ surface appear to be related at all. I think they are, but that might change.
 * References
  - [[https://ia802307.us.archive.org/7/items/bitsavers_xeroxinternceManualOct1983_52302609/Interlisp_Reference_Manual_Oct_1983.pdf][Interlisp Reference Manual]]
  - [[https://dl.acm.org/doi/10.1145/592849.592858][Getting Erlang to Talk to the Outside World]]
+ - The Art of the Metaobject Protocol
+ - The Early History of Smalltalk
 * Potentially Useful Reading
  - https://arxiv.org/abs/2206.01041
 * Copyright
