@@ -28,11 +28,12 @@ surface appear to be related at all. I think they are, but that might change.
     notion of computation, but by being closed they prohibit communication.
 
     In the same paper in which Turing defined his automatic machines (1936) he
-    also defined a class of machines called choice machines which communicate
-    with a human operator. He showed that choice machines, by being able to ask
-    an arbitrary number of y/n questions are qualitatively more powerful than
-    automatic machines (which we today call Turing machines). The gist of the
-    argument is that the set of Turing machines is countable, but 2^ω is not.
+    also defined a class of machines which he called choice machines which
+    communicate with a human operator. He showed that choice machines, by being
+    able to ask an arbitrary number of y/n questions are qualitatively more
+    powerful than automatic machines (which we today call Turing machines). The
+    gist of the argument is that the set of Turing machines is countable,
+    whereas the set of choice machines is not.
 
     It shouldn't be controversial that Turing computable is a small subset of
     "can be done by modern electronic devices" — it was clearly stated by Turing
@@ -805,10 +806,12 @@ surface appear to be related at all. I think they are, but that might change.
 
     I'm also not convinced that logic is the most effective way to prove
     programs correct. In no other endeavour is logic used to construct proofs.
-    Logic is a method of formalising proofs that already exist. And "formal" is
-    a target that has been moving for over 5000 years.
+    Logic is a method of rigourously verifying proofs which already exist. And
+    "rigour" is a target that has been moving through the entire history of
+    mathematics.
 
-    But I don't have anything better as of yet.
+    Software needs more Polya and less Plato, but we're a long ways off from
+    that as yet.
 *** The Stack
     The modern callstack and the prevalence of stack machines when defining
     languages has its origin in Dijkstra's Notes on Structured Programming
@@ -1014,16 +1017,20 @@ surface appear to be related at all. I think they are, but that might change.
     What is the meaning of `async` in contemporary programming languages?
     It's a negative, and so only makes sense in relation to that which it's
     negating. Is there such a thing as `sync` to give it meaning? I happen to
-    think it's as relic of legacy and habit.
+    think it's a relic of legacy and habit.
 
-    Show me a syncronous instruction in a computer. Even assembly verbs take
-    different amounts of time. There's a huge difference between add and div,
-    but the same instruction always takes the same amount of time, right? What
-    about add with args on in registers, vs add with args on the heap? Does the
-    cache hit or miss? Is the system paused for GC?
+    What's a fully synchronous operation? Adding two fixnums? Well are the
+    numbers in registers or being loaded from ram? Are they in cache? Is the
+    needed in memory address paged out to disk? Has GC paused the world?
 
-    All sync really means is "while I'm waiting, nobody else can use the
-    cpu". And in that sense, sync must die.
+    And don't forget pipelining, speculation, and out of order execution.
+
+    Synchronicity is an illusion we create so that we can visualise our programs
+    as a linear sequence of instructions that happen one at a time and in
+    order.
+
+    All sync really means in this context is "while I'm waiting, nobody else can
+    use the cpu". And in that sense, sync must die.
 
     So does this mean we can't meet hard real time requirements? Not at all. A
     program that assumes the cache will always hit is going to miss hard
