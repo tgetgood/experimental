@@ -84,3 +84,54 @@ Bootstrapping is going to be fun.
 
    One of my core goals is to prevent the programmer from being able to lie to
    themselves about what they do and do not know.
+
+** [2022-10-06 Thu 09:19] Context and fexprs
+   The most common issue I've been having with a complete lack of side effects
+   is the maintenance of local state. The language itself needs to keep internal
+   state so that new defs can be referred to later on.
+
+   Modelling state as function sending results back to two locations is a
+   kludge. It's not that dissimilar to the state monad in that it keeps state
+   hidden away inside some secret loop that isn't readily accessible except when
+   necessary.
+
+   That's the wrong way to go about it entirely.
+
+** [2022-10-06 Thu 10:23] Reflection and Semantics in Lisp
+   Brian Cantwell Smith 1984
+
+   I'd forgotten how much influence this paper has had on my thinking. Rereading
+   it now, I'm seeing that a large portion of my meandering theories are just
+   attempts to rephrase and understand his basic idea of reflection.
+
+   For instance, Smith's equation relating denotation to operation in lisp:
+
+   ∀ s ∈ S, if ϕ(s) ∈ S then ψ(s) = ϕ(s) else ϕ(ψ(s)) = ϕ(s)
+
+   Is exactly what I've been calling "generalised homoiconicity".
+
+   It says, loosely, that if a form denotes a form, then the interpretation of
+   the form *is* its meaning. Otherwise the meaning of the form is the meaning
+   of its interpretation.
+
+   Hickey's emphasis on making literal data syntactically explicit actually
+   makes the equation above much easier to understand. I don't think I would
+   ever have seen the significance without having programmed in clojure.
+
+   It shouldn't be surprising that my ideas aren't original. Ideas are never
+   fully original. Now that I've remembered where these originate, I have some
+   reading to do:
+
+   - [ ] A Simple Reflective Interpreter, Jefferson & Friedman 1996
+   - [ ] Intensions and Extensions in a Reflective Tower, Danvy & Malmkjær 1988
+   - [ ] The Mystery of the Tower Revealed, Wand & Friedman 1988
+   - [ ] The Theory of Fexprs is Trivial, Wand 1998
+     I've read the intro of this paper before and took it as a dismissal fexprs
+     and mathematically uninteresting, which I believe is the general takaway in
+     the community.
+
+     But doesn't that mean that we have a solution to function equality? That is
+     to say, does this paper actually prove that a lisp interpreter can be
+     qualitatively more powerful than the lambda calculus? I definitely need to
+     read this now. The implications for robust engineering are impossible to
+     overstate if that's the case, even if the math is boring.

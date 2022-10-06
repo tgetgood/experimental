@@ -1,10 +1,9 @@
-;; TODO: llvm bitcode generation (JIT compiler)
-
 ;; Namespace xprl.core
 
 {:name    xprl.core
  :imports {}
- ;; These are more like m-expressions
+ ;; These are f-expressions. Some operate on the context of evaulation and
+ ;; return a new one, others return vaules. There's confusion embedded here.
  :defs    {fn
            ???
 
