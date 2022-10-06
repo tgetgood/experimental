@@ -1,72 +1,31 @@
 ;; TODO: llvm bitcode generation (JIT compiler)
 
-;; TODO: execution context (frames, sort of) as a first class thing with fns to
-;; manipulate it.
+;; Namespace xprl.core
 
-;;;;; REPL
+{:name    xprl.core
+ :imports {}
+ ;; These are more like m-expressions
+ :defs    {fn
+           ???
 
-;; Below I'm using the var `context` to mean the set of symbols that have
-;; meaning at a point in a program. Should I also include locals and return
-;; locations in that context?
-;;
-;; Units of code (flubs for now) define names of channels to which they might
-;; emit. Conventional lisp return (final expr of form) is just sugar for `(emit
-;; *out* ret-val)`, where *out* is generally bound to what would be the return
-;; pointer of the call stack, but can be redirected.
-;;
-;; More generally flubs could have an *err* channel which by default prints on
-;; stderr, or recursive channels to send messages to future invocations of
-;; themselves, thus retaining state without mutation.
-;;
-;; Of course that brings up thread locality, which in this case is a matter of
-;; wiring. I need to see wiring in action before making concrete assumtions
-;; about it.
+           ns
+           (fn [context name imports]
+             ;; Curiously `ns` doesn't need to be a special form, it's just
+             ;; an fn which emits a new context.
+             {:ns {:name name :imports (parse-imports #_punt imports) :defs {}}})
 
-(def read
-  (intern
-   (fn [until context stream]
-     (let [stream (drop-while whitespace? stream)
-           c (first stream)])
-     (when (not= until c)
-       ((get dispatch-table c read-token) until context stream)))))
+           qualify
+           (fn [context name]
+             (symbol (:name (:ns context)) name ))
 
-(def read-coll
-  (intern
-   (fn [type _ context stream]
-     (loop [v (empty type)
-            s (rest stream)]
-       (let [[expr tail] (read (end-char type) context s)]
-         (if (= tail s)
-           [v (rest tail)]
-           (recur (conj v expr) tail)))))))
+           def
+           (fn [context name body]
+             (update-in context [:ns :defs] (qualify context fqn) body))
 
-(def read-token
-  (intern
-   (fn [until context stream]
-     (let [[head tail] (split-at (breaker until) stream)]
-       [(resolve context head) tail]))))
+           defn
+           (fn [context name args body]
+             (def context name (fn args body)))
 
-(def resolve
-  (intern
-   (fn [context token]
-     (cond
-       (number? token) (parse token)
-       (keyword? token) (read-keyword token)
-       ;; Resolve symbols at read time! Nothing changes under your feet.
-       (symbol? token) (resolve-symbol context token)
-       :else (emit *err* "unknown atom type.")))))
-
-(def eval
-  ;; REVIEW: This is redundant. We should have a macro that interns a form in
-  ;; buzzpop and then binds a name to that ref in one step. Def should probably
-  ;; do that by default.
-  (intern
-   (fn [context form]
-     (cond
-       ;; REVIEW: I'm assuming auto currying for concision. I don't yet know if
-       ;; we want that in the language
-       (list? form) (apply (eval context (first form)) (map (eval context) form))
-       (value-atom? form) form
-       (symbol? form) (symbol-lookup form)
-       (coll? form) (into (empty form) (map (eval context) form))
-       :else (emit *err* "Unknown ")))))
+           resolve-symbol
+           (fn [context name]
+             (or (get-in context [:defs name]) (get-in context [:imports name])))}}

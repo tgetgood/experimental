@@ -35,5 +35,9 @@
 
 (def name-map
   (fn ^{:in [*name-map*]} [m]
-    (fn ^{:out [*name-map*]} [{:keys [sym ref]}])
+    (fn ^{:out [*name-map* ]} [{:keys [sym ref]}])
     ))
+
+
+(def buzz-table
+  )

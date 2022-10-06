@@ -1,0 +1,42 @@
+(ns xprl.reader)
+
+(def dispatch-table
+    {\[ (read-coll Vector)
+     \{ (read-coll FiniteMap)})
+
+(defn read [until stream]
+  (let [stream (drop-while whitespace? stream)
+        c      (first stream)])
+  (when (not= until c)
+    ((get dispatch-table c read-token) until stream)))
+
+
+(defn read-coll [type _ stream]
+  (loop [v (empty type)
+         s (rest stream)]
+    (let [[expr tail] (read (end-char type) s)]
+      (if (= tail s)
+        [v (rest tail)]
+        (recur (conj v expr) tail)))))
+
+
+(defn read-token [until stream]
+  (let [[head tail] (split-at (breaker until) stream)]
+    [(resolve head) tail]))
+
+
+(defn resolve [token]
+  (cond
+    (number? token)  (parse token)
+    (keyword? token) (read-keyword token)
+    ;; Resolve symbols at read time! Nothing changes under your feet.
+    (symbol? token)  (resolve-symbol token)
+    :else            (emit *err* "unknown atom type.")))
+
+
+(defn eval [form]
+  (cond
+    (list? form)       (apply (eval (first form)) (map eval form))
+    (value-atom? form) form
+    (coll? form)       (into (empty form) (map eval form))
+    :else              (emit *err* "Unknown ")))
