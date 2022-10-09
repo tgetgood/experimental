@@ -1,30 +1,65 @@
 ;; Namespace xprl.core
 
-{:name    xprl.core
- :imports {}
- ;; These are f-expressions. Some operate on the context of evaulation and
- ;; return a new one, others return vaules. There's confusion embedded here.
- :defs    {fn
-           ???
+(def init-env
+  {:name    xprl.core
+   :imports {}
+   ;; These are f-expressions. Some operate on the context of evaulation and
+   ;; return a new one, others return vaules. There's confusion embedded here.
+   :defs    {ns
+             (fn [context name imports]
+               ;; Curiously `ns` doesn't need to be a special form, it's just
+               ;; an fn which emits a new context.
+               {:ns {:name name :imports (parse-imports #_punt imports) :defs {}}})
 
-           ns
-           (fn [context name imports]
-             ;; Curiously `ns` doesn't need to be a special form, it's just
-             ;; an fn which emits a new context.
-             {:ns {:name name :imports (parse-imports #_punt imports) :defs {}}})
+             qualify
+             (fn [context name]
+               (symbol (:name (:ns context)) name))
 
-           qualify
-           (fn [context name]
-             (symbol (:name (:ns context)) name ))
+             def
+             (fn [context name body]
+               (update-in context [:ns :defs] (qualify context fqn) body))
 
-           def
-           (fn [context name body]
-             (update-in context [:ns :defs] (qualify context fqn) body))
+             defn
+             (fn [context name args body]
+               (def context name (fn args body)))}})
 
-           defn
-           (fn [context name args body]
-             (def context name (fn args body)))
+(defn eval [env form]
+  (cond
+    (symbol? form) (lookup env form)
+    (value? form) form
+    (applicative? form) (apply env (first form) (rest form))
+    (coll? form) (into (empty form) (map (partial eval env) form))))
 
-           resolve-symbol
-           (fn [context name]
-             (or (get-in context [:defs name]) (get-in context [:imports name])))}}
+;; REVIEW: using an applicative protocol instead would make the system much more
+;; amenable to extension.
+(defn apply [env f args]
+  (let [f' (eval env f)]
+    (if (reflective? f')
+      (eval env `(f' env ~@args))
+      (eval (:env f') (destructuring-bind (:body f) (:args f) (eval env args))))))
+
+(defn ^:reflective if [env p then else]
+  (let [p' (eval env p)]
+    (p' env then else)))
+
+(defn ^:reflective true [env then else]
+  (eval env then))
+
+(defn ^:reflective false [env then else]
+  (eval env else))
+
+(defn ^:reflective fn [env args body]
+  {:args args
+   :body body
+   :source "..."
+   :doc "..."
+   :env env
+   :ns (:ns env)})
+
+(defn ^:reflective let1 [env [name form] body]
+  (eval (update env locals :assoc name (eval env form)) body))
+
+(defn eval-all [env forms]
+  ;; Sort of. Sometimes a flub returns a new environment and sometimes it
+  ;; returns a value with an implied unchanged environment...
+  (reduce eval init-env forms))

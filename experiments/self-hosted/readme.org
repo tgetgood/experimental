@@ -6,7 +6,6 @@ thought out to do something useful.
 Bootstrapping is going to be fun.
 
 * Questions
-
 ** [2022-09-28 Wed 12:26] def, intern, and purity
    If there are no side effects, how does one implement `def`?
 
@@ -135,3 +134,73 @@ Bootstrapping is going to be fun.
      qualitatively more powerful than the lambda calculus? I definitely need to
      read this now. The implications for robust engineering are impossible to
      overstate if that's the case, even if the math is boring.
+** [2022-10-07 Fri 12:00] More Reflection on Reflection and Semantics in Lisp
+   At the end of section 7, Smith writes "It is noteworthy that no reflective
+   proceedures need to be primitive; even LAMBDA can be built up from scratch."
+
+   Here's the implementation of λ:
+
+   (define lambda
+     (lambda reflect [[kind pattern body] env cont]
+       (cont (ccons kind ↑env pattern body))))
+
+   So all lambdas are defined in terms of lambda reflect. That's really cool,
+   but we have a bootstrapping problem: lambda reflect needs to be built in
+   before lambda can be defined. Isn't that a necessary reflective primitive?
+
+   Need to read Smith and des Rivières 1984 to see how they break the cycle.
+
+   Does he not consider bootstrapped circuit breakers to be primitive, or am I
+   missing something?
+
+   The initial lambda implementation is very important since it's an opening
+   for Thompson quines.
+
+   But beyond security considerations, it's that circuit breaking kludge that
+   shows the lie of lisp, by itself, as a full theory of computing
+   machinery. Something else needs to exist for a lisp to be built on top of,
+   and how lisp is implemented in that something else determines the ultimate
+   reach.
+
+   So what if instead of having an initial lambda in terms of which lambda is
+   defined, we had a call down to a lower level which explicitely says
+   "`lambda` at the lisp level is defined in terms of `lambda` in the
+   substrate."? What is the substrate? That's an implementation concern, but it
+   could be anything from raw hex up to clojure, it depends on what the
+   language is implemented in.
+
+   Or perhaps, more concisely, it depends on the interpreter of the interpreter
+   that we call "lisp".
+
+   The tower can be arbitrarily high, but it goes down to the hardware and ends
+   there always. How high it goes depends on how much reflection an application
+   needs, and how far below on what tech stack is used to build it.
+
+   The "programming language" is always in the middle of a tower. If the
+   language is sufficiently expressive we build up from the language to
+   something higher, but even the least expressive of languages are implemented
+   in something else all the way down to machine code, or microcode, or verilog
+   and fpga layout, depending on how far you want to look.
+
+   The height of stacks nowadays is often lamented as a problem. Languages like
+   go and rust which compile right to machine code are one way of getting
+   around that problem, but they do it by restricting how high the programmer
+   can climb (because the compiler has to understand everything top to bottom
+   and that's just too hard in general for any program we can currently
+   write).
+
+   I'm thinking the opposite. Allow the stack to grow as high as necessary to
+   express the program you want to write as cleanly as possible. Simple,
+   obviously correct programs sitting on top of many layers of progressively
+   more complex but tractible abstractions. But keep the stack explicit. The
+   tower of technologies is invisible to the programmer who doesn't care, but
+   is always available for inspection, debugging, tooling, or optimising.
+
+   After all, once you have the simple and elegant solution, the best way to
+   optimise it is to quash the inner layers of abstraction while preserving the
+   simple surface.
+
+   Ultimately, even though 3-lisp defines lambda as a userspace function, the
+   meaning and behaviour of that function will always depend on the behaviour
+   of an invisible kludge that was shoved in to get it all started and then
+   deleted and forgotten about.
