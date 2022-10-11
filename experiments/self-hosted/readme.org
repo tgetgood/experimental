@@ -1,10 +1,52 @@
 This is a scratchpad of what might feel like to program in xprl.
 
+It's rapidly becoming yeat another attempt to organise a sprawling spiral of
+research. That's okay; I really don't know where I want to take this yet.
+
 Initially I'm writing the language in itself to make sure it's sufficiently
 thought out to do something useful.
 
 Bootstrapping is going to be fun.
 
+* Reading List
+   - [ ] A Simple Reflective Interpreter, Jefferson & Friedman 1996
+   - [ ] Intensions and Extensions in a Reflective Tower, Danvy & Malmkjær 1988
+   - [ ] The Mystery of the Tower Revealed, Wand & Friedman 1988
+   - [ ] The Theory of Fexprs is Trivial, Wand 1998
+     I've read the intro of this paper before and took it as a dismissal fexprs
+     and mathematically uninteresting, which I believe is the general takaway in
+     the community.
+
+     But doesn't that mean that we have a solution to function equality? That is
+     to say, does this paper actually prove that a lisp interpreter can be
+     qualitatively more powerful than the lambda calculus? I definitely need to
+     read this now. The implications for robust engineering are impossible to
+     overstate if that's the case, even if the math is boring.
+   - [ ] Mathematical Foundations of Joy
+   - [ ] Reification: Reflection without Metaphysics; Friedman, Wand 1984
+   - [ ] Brian Smith's Phd Thesis
+     This thing is 762 pages long. That's just crazy. But judging by the table
+     of contents, the first 150 pages or so are likely to be full of useful
+     insight.
+   - [ ] Reread The Early History of Smalltalk
+   - [ ] Art of the Metaobject Protocol
+     You know a book is above your paygrade when you read it and think "Hey they
+     didn't do anything." and then realise that they've implemented an entire
+     language without you noticing.
+* Languages to learn more about
+  - Factor
+  - Joy
+  - See where Unison has gotten
+  - Minikanren and relational programming in general
+  - CLOS
+  - Go
+    Comparatively boring choice? Well people who work in go day to day always
+    tell me the same thing: go is boring and yet incredibly productive. They get
+    everything done and go home early on a regular basis.
+
+    That is the most understated attestation of excellence I've ever heard. I
+    want to see it in action. Cool is only useful to draw the crowd, and crowds
+    are overrated.
 * Questions
 ** [2022-09-28 Wed 12:26] def, intern, and purity
    If there are no side effects, how does one implement `def`?
