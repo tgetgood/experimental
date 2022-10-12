@@ -45,8 +45,7 @@ Bootstrapping is going to be fun.
     everything done and go home early on a regular basis.
 
     That is the most understated attestation of excellence I've ever heard. I
-    want to see it in action. Cool is only useful to draw the crowd, and crowds
-    are overrated.
+    want to see it in action. Cool is only useful to draw the crowd.
 * Questions
 ** [2022-09-28 Wed 12:26] def, intern, and purity
    If there are no side effects, how does one implement `def`?
