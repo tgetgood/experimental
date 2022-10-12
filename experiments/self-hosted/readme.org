@@ -10,9 +10,9 @@ Bootstrapping is going to be fun.
 
 * Reading List
    - [ ] A Simple Reflective Interpreter, Jefferson & Friedman 1996
-   - [ ] Intensions and Extensions in a Reflective Tower, Danvy & Malmkjær 1988
-   - [ ] The Mystery of the Tower Revealed, Wand & Friedman 1988
-   - [ ] The Theory of Fexprs is Trivial, Wand 1998
+   - [X] Intensions and Extensions in a Reflective Tower, Danvy & Malmkjær 1988
+   - [X] The Mystery of the Tower Revealed, Wand & Friedman 1988
+   - [X] The Theory of Fexprs is Trivial, Wand 1998
      I've read the intro of this paper before and took it as a dismissal fexprs
      and mathematically uninteresting, which I believe is the general takaway in
      the community.
@@ -22,8 +22,46 @@ Bootstrapping is going to be fun.
      qualitatively more powerful than the lambda calculus? I definitely need to
      read this now. The implications for robust engineering are impossible to
      overstate if that's the case, even if the math is boring.
-   - [ ] Mathematical Foundations of Joy
-   - [ ] Reification: Reflection without Metaphysics; Friedman, Wand 1984
+     After rereading sections of this paper, I still don't understand the details of
+     the argument, but the meaning seems more relevant. It has to do with optimising
+     compilers and source rewriting: if context is so important that only identical
+     things (in context) are equal, then the compiler has to have insight into the
+     semantics of the program because purely syntactic transformations are
+     impossible.
+
+     This seems to be more because sytax and semantics cease to be separate domains
+     that can be operated upon individually. Thus the entire formailst ediface is
+     inapplicable and so on and so on.
+
+     That doesn't seem so bad. But it does mean that we need a new way of
+     expressing the meaning of a program.
+   - [X] Mathematical Foundations of Joy
+     Denotational semantics is such an unsatisfying interpretation of
+     meaning. Syntax and semantics are strictly separated
+     because.... because. Computers are formal symbol manipulators, which is
+     another way of saying they're purely syntactic.
+
+     So syntax is an algebraic construct of some sort (a monoid in Joy's case)
+     and we want to relate it to semantics. So why don't we find a homomorphism
+     of some sort from our syntactic algebra to some other algebra and call that
+     other algebra the semantics?
+
+     Okay, awesome. But what the hell does it mean?
+
+     We've lost the point. What does it mean to say "A means B"?
+
+     What if one tried to build a language semantics on Bateson's slash?
+
+     Semantics aside, the notion that every word is a function from stack to
+     stack (or in a more general sense from context of evaluation to context of
+     evaluation) is a fascinating perspective. Om takes this even further by
+     viewing every word as a function from continuation to continuation.
+
+     What if eval only operated on the environment? That env moving around the
+     system is in a real sense the entire computation up to this point. We can't
+     know what inputs are going to come in (think repl development), but we
+     always know to what that new code will be applied.
+   - [X] Reification: Reflection without Metaphysics; Friedman, Wand 1984
    - [ ] Brian Smith's Phd Thesis
      This thing is 762 pages long. That's just crazy. But judging by the table
      of contents, the first 150 pages or so are likely to be full of useful

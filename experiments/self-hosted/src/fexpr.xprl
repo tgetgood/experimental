@@ -1,0 +1,89 @@
+(ns xprl.core)
+
+
+(def rfn
+  "A reflective fn is a function whose args are passed directly without
+  evaluation."
+  (rfn [env args body]
+       ))
+
+(defr def
+  "`def` is the typical lisp define construct. We can define define in
+  userspace, but that's really a trick, because defr is defined as a patch in
+  the interpreter."
+  (rfn [env name doc body]
+       (eval env (def name doc (eval env body)))
+    ))
+
+;;;;; Eval
+
+;; eval takes an environment and a form and returns the environment for the rest
+;; of the computation. To whom does it return it? I still need to think out
+;; continuations.
+
+(defn eval [env form]
+  ;; Everything evaluates to itself by default. That is to say that everything
+  ;; has to opt in to interpretation.
+  (assoc env :ret form))
+
+(defn eval [env ^Symbol sym]
+  (let [{:keys [form env]} (get-in env [:names sym])]
+    ;; If you got a symbol, that means that the containing form has never been
+    ;; evaluated. Find the fexpr and environment refered to by sym and evaluate
+    ;; the fexpr in the environment in which it was defined (which might not be
+    ;; the environment right now.
+    (eval env form)))
+
+;; TODO: We need the ability to take an fexpr out of the environment and
+;; evaluate it in a new environment which is not the one with which it was
+;; originally defined. I don't know if this should require creating a new name,
+;; or be a form of dynamic resolution.
+
+(defn eval [env ^List form]
+  (apply env (first form) (rest form)))
+
+;;;;; Apply
+
+;; I'm not sure about this syntax for specialising to specific instances. This
+;; says that if the second argument is the symbol def
+(defn apply [env ^(quote ns) _ [name imports]]
+  ;; REVIEW: This doesn't continue. That is to say, by returning an environment
+  ;; without setting up a next place to go, this computation signals that it's
+  ;; final. Compute and halt. It's up to the calling process to do something
+  ;; with the new environment and carry on. Outside of a repl or other code
+  ;; reading environment, `ns` isn't meaningful.
+  (-> env
+      (assoc :current-ns (str name))
+      (update :names merge (parse-imports imports))))
+
+(defn apply [env ^(quote defr) _ [name doc form]]
+  (let [fullname (symbol (:current-ns env) name)]
+    (-> env
+        ;; We fully namespace all names. Is there any sense in breaking up the
+        ;; name store by namespace? At present no, but I suspect it will help in
+        ;; the future.
+        (update :names (assoc name {:name   fullname
+                                    :form   form
+                                    :doc    doc
+                                    ;; Here's the tricky part! The env present when
+                                    ;; this form was *read*
+                                    ;; (TODO: I need to prove that the env passed
+                                    ;; in here is identical to that with which the
+                                    ;; form was evaluated)
+                                    ;; must be saved along with the form because it
+                                    ;; determines what *all of the symbols in the
+                                    ;; form mean*
+                                    :env    env
+                                    :source (:location (:reader env))}))
+        ;; This is a little underhanded. If I want eval to map environments to
+        ;; environments, then I need to sneak the evaluand into the environment
+        ;; somehow.
+        (assoc :ret name))))
+
+
+(defn apply [env ^(quote fn) _ [args body]]
+  (Fn. {:env env :slots args :body body}))
+
+(defn apply [rtenv ^Fn {:keys env slots body} args]
+  (let [])
+  )
