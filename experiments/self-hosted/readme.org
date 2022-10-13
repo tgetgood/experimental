@@ -283,3 +283,73 @@ Bootstrapping is going to be fun.
    meaning and behaviour of that function will always depend on the behaviour
    of an invisible kludge that was shoved in to get it all started and then
    deleted and forgotten about.
+** [2022-10-13 Thu 10:43] Reflection without infinity
+   The approach of Friedman and Wand is intriguing, but the `meaning` builtin
+   seems like a mistake. The builtin "spin up a new interpreter and run code
+   there (using this interpreter to interpret that interpreter)" is a clever
+   hack to avoid the infinite tower. Something similar, though poorly formed,
+   occured to me when reading Smith's paper in the first place.
+
+   But do we really need that `meaning` operator. And perhaps more importantly,
+   do we want to spin up a copy of the *same* interpreter, or give the user the
+   ability to define new interpreters at will and embed them within the code?
+
+   Take the macro definition in fexpr.xprl (as of now). What we have is a sort
+   of meta evaluation protocol. `eval` dispatches on the type of its
+   argument. Lists being the primary metaphor for passing information around in
+   lisp, `(eval ^List ...)` invokes `apply` which is where the bulk of lisp
+   happens.
+
+   But `eval` passes on expressions without evaluating them, and `apply` itself
+   dispatches on type — and I'm allowing specification to instances in this case
+   (though I ought to namespace qualify everything in advance) — the combined
+   effect being that I can specialise `apply` to the symbol `xprl.core/fn` and
+   have apply create a datastructure representing a function declaration (*not*
+   a compiled proceedure). Then when `apply` is called on one of these function
+   objects, it does what you expect (evals the args, binds the results to the
+   function arguments, and then evaluates the result). But we can dispatch
+   `apply` on the symbol `xprl.core/macro` as well, creating a different kind of
+   datastructure (which is really the same as a function object but of a
+   different type) and then not evaluate the arguments passed to a macro
+   object.
+
+   `xprl.core/fn` and `xprl.core/macro` are effectively keywords since they're
+   defined as specialisations of the interpreter itself. But the user can define
+   new keywords in the same way freely. They can even define their own
+   interpreter and completely replace the builtin one (though the builtin one
+   will be interpreting it, which maybe I can avoid).
+
+   But back to reflection. When the programmer is able to define new *expression
+   types* they can control what is evaluated when and thus manipulate the
+   datastructures that are going to be evaluated before passing them to
+   eval. That's reflection. If the user wants to manipulate the new expression
+   type before its version of eval/apply gets invoked, they can define yet
+   another expression type and indirect evaluation another level. And so on ad
+   nauseum.
+
+   I've never seen any practical use in using reflection more than 2 levels
+   deep, but maybe I just haven't been looking. With this metaeval protocol we
+   can reflect as deeply as we need to, but we have to do the work of setting up
+   each new level as we go. More work, less magic. I think that's a good trade.
+
+   Going back to a second to the idea of lists being the metaphor for message
+   passing in lisp: a list is considered to be the implicit invocation of a
+   function with arguments. Or seen from a message passing point of view, a list
+   is a specification '(f & args) that says "send the message `args` to `f`
+   (after interpreting what is meant by args) and wait for a response."
+
+   With continuations we don't need to worry about waiting for responses since f
+   will either yield to some process of its own accord, or yield back to the
+   current continuation (as a return value), but we don't care, that's up to f.
+
+   So what if `f` is another interpreter? and especially what if it's another
+   interpreter messaged from tail position that never returns to the calling
+   interpreter? This is the sort of setup I'm looking for to bootstrap higher
+   level languages that are capable of stepping down to lower layers for interop
+   purposes.
+
+   It's also a way to have a conceptually deep stack with lots of descriptive
+   layers that aid development and debugging, but can be stripped away entirely
+   when performance is the main concern.
+
+   But I'm getting way ahead of myself.

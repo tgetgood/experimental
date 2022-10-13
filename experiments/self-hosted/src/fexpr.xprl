@@ -1,19 +1,17 @@
 (ns xprl.core)
 
-
 (def rfn
   "A reflective fn is a function whose args are passed directly without
   evaluation."
   (rfn [env args body]
-       ))
+    ???))
 
 (defr def
   "`def` is the typical lisp define construct. We can define define in
   userspace, but that's really a trick, because defr is defined as a patch in
   the interpreter."
   (rfn [env name doc body]
-       (eval env (def name doc (eval env body)))
-    ))
+    (eval env (def name doc (eval env body)))))
 
 ;;;;; Eval
 
@@ -34,15 +32,42 @@
     ;; the environment right now.
     (eval env form)))
 
+(defn eval [env ^Collection coll]
+  ;; You know what I mean...
+  (into (empty coll) (map (partial eval env)) coll))
+
 ;; TODO: We need the ability to take an fexpr out of the environment and
 ;; evaluate it in a new environment which is not the one with which it was
 ;; originally defined. I don't know if this should require creating a new name,
 ;; or be a form of dynamic resolution.
 
+;; Here's the crux of it: lists and only lists invoke `apply`.
+;;
+;; `apply` is our metaphor for passing information between agents. It's the only
+;; time that information gets incorporated. It's the only time anything happens
+;; in a lisp. Lambda the ultimate.
+;;
+;; Well, what else can we do?
 (defn eval [env ^List form]
   (apply env (first form) (rest form)))
 
 ;;;;; Apply
+
+(def apply
+  (macro [env ^(quote macro) _ [slots body]]
+    (assoc env :ret (Macro. env slots body))))
+
+(def apply
+  (macro [env ^Macro m args]
+    ;; Make sure that nothing is being shadowed, similar to clojure macros.
+    ;; N.B.: This is complicated by the fact that the arguments passed to a
+    ;; macro resolve their bindings in the calling env, but symbols in the
+    ;; macro body resolve within the env at macro definition time.
+    ;;
+    ;; Thinking about it, I think we can rewrite the args and body into a
+    ;; normal form and not have to worry about name shadowing at all.
+    (let [e (sanitize-bindings args env (:env m))]
+      (eval e (destructuring-bind (:slots m) args (:body m))))))
 
 ;; I'm not sure about this syntax for specialising to specific instances. This
 ;; says that if the second argument is the symbol def
@@ -65,14 +90,14 @@
         (update :names (assoc name {:name   fullname
                                     :form   form
                                     :doc    doc
-                                    ;; Here's the tricky part! The env present when
-                                    ;; this form was *read*
-                                    ;; (TODO: I need to prove that the env passed
-                                    ;; in here is identical to that with which the
-                                    ;; form was evaluated)
-                                    ;; must be saved along with the form because it
-                                    ;; determines what *all of the symbols in the
-                                    ;; form mean*
+                                    ;; Here's the tricky part! The env present
+                                    ;; when this form was *read*
+                                    ;; (TODO: I need to prove that the env
+                                    ;; passed in here is identical to that with
+                                    ;; which the form was evaluated)
+                                    ;; must be saved along with the form because
+                                    ;; it determines what *all of the symbols in
+                                    ;; the form mean*
                                     :env    env
                                     :source (:location (:reader env))}))
         ;; This is a little underhanded. If I want eval to map environments to
@@ -80,10 +105,16 @@
         ;; somehow.
         (assoc :ret name))))
 
-
 (defn apply [env ^(quote fn) _ [args body]]
   (Fn. {:env env :slots args :body body}))
 
 (defn apply [rtenv ^Fn {:keys env slots body} args]
-  (let [])
-  )
+  ;; This is a weird one. Because eval sneaks the evaluated value of its `form`
+  ;; argument into the environment, we need to pull that value back out so that
+  ;; we can bind it to the args the fn expects.
+  (eval env (destructuring-bind slots (:ret (eval rtenv args)) body)))
+
+
+;; This is going to be ugly, how do we get normal evaluation semantics?
+
+(f |out>in>  )
