@@ -49,7 +49,7 @@
 ;;
 ;; Well, what else can we do?
 (defn eval [env ^List form]
-  (apply env (first form) (rest form)))
+  (apply env (eval env (first form)) (rest form)))
 
 ;;;;; Apply
 
