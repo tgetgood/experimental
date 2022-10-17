@@ -1,17 +1,12 @@
 (ns xprl.core)
 
-(def rfn
-  "A reflective fn is a function whose args are passed directly without
-  evaluation."
-  (rfn [env args body]
-    ???))
 
-(defr def
-  "`def` is the typical lisp define construct. We can define define in
+(def defn
+  "`defn` is the typical lisp define construct. We can define define in
   userspace, but that's really a trick, because defr is defined as a patch in
   the interpreter."
-  (rfn [env name doc body]
-    (eval env (def name doc (eval env body)))))
+  (macro [env name doc args body]
+    (list 'def name doc (list 'fn args body))))
 
 ;;;;; Eval
 
@@ -49,9 +44,15 @@
 ;;
 ;; Well, what else can we do?
 (defn eval [env ^List form]
-  (apply env (eval env (first form)) (rest form)))
+  (apply env (first form) (rest form)))
 
 ;;;;; Apply
+
+(def apply
+  (macro
+   [env ^List x args]
+   (apply env (eval env x) args)))
+
 
 (def apply
   (macro [env ^(quote macro) _ [slots body]]
@@ -81,7 +82,7 @@
       (assoc :current-ns (str name))
       (update :names merge (parse-imports imports))))
 
-(defn apply [env ^(quote defr) _ [name doc form]]
+(defn apply [env ^(quote def) _ [name doc form]]
   (let [fullname (symbol (:current-ns env) name)]
     (-> env
         ;; We fully namespace all names. Is there any sense in breaking up the
@@ -103,18 +104,14 @@
         ;; This is a little underhanded. If I want eval to map environments to
         ;; environments, then I need to sneak the evaluand into the environment
         ;; somehow.
-        (assoc :ret name))))
+        (assoc :ret fullname))))
 
 (defn apply [env ^(quote fn) _ [args body]]
-  (Fn. {:env env :slots args :body body}))
+  (assoc env :ret (Fn. {:env env :slots args :body body})))
 
-(defn apply [rtenv ^Fn {:keys env slots body} args]
+(defn apply [rtenv ^Fn {:keys [env slots body]} args]
   ;; This is a weird one. Because eval sneaks the evaluated value of its `form`
   ;; argument into the environment, we need to pull that value back out so that
   ;; we can bind it to the args the fn expects.
-  (eval env (destructuring-bind slots (:ret (eval rtenv args)) body)))
-
-
-;; This is going to be ugly, how do we get normal evaluation semantics?
-
-(f |out>in>  )
+  (assoc env :ret
+         (eval env (destructuring-bind slots (:ret (eval rtenv args)) body))))
