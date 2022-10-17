@@ -9,7 +9,7 @@ thought out to do something useful.
 Bootstrapping is going to be fun.
 
 * Reading List
-   - [ ] A Simple Reflective Interpreter, Jefferson & Friedman 1996
+   - [ ] Lambda the Ultimate Declarative — Steele 1976
    - [X] Intensions and Extensions in a Reflective Tower, Danvy & Malmkjær 1988
    - [X] The Mystery of the Tower Revealed, Wand & Friedman 1988
    - [X] The Theory of Fexprs is Trivial, Wand 1998

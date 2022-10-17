@@ -1,0 +1,160 @@
+;; Forms are read in one at a time as if typed into a repl. Order is very
+;; important. The complete lack of backreference can take some getting used to;
+;; mutual recursion with trampolines isn't very pretty.
+(ns xprl.core)
+
+;; the environment is something like:
+(comment
+  {:continuations {:return ^Fn {...}
+                   ;; I think we're going to want a mechanism akin to stderr,
+                   ;; where any program can signal error to its caller via a
+                   ;; side channel. But it needs more work.
+                   :err ^Fn {...}}
+   :names         {...}
+   :current-ns    xprl.core})
+
+;; Functions are data. That means that they evaluate to themselves, unlike the
+;; compiled proceedures, objects, etc. of typical lisps.
+
+(comment
+  (eval env (fn [x y z] (+ (* x x) y (- y z))))
+  -> ^Fn {:args [x y z]
+          :body (+ (* x x) y (- y z))})
+;; where ^Fn is a type tag that calls a constructor at *read time*. I'm trying
+;; not to do that since I don't want a static/runtime dichotomy, but it's
+;; proving difficult.
+
+;; Note that this means that
+
+(eval env (eval env (fn ...))) = (eval env (fn ...))
+
+;; I.e. eval is idempotent on forms which define functions.
+
+;; This means, notably, that the continuations in the calling environment of a
+;; function are *not* flubs (to use Hoyte's terminology). They are not opaque
+;; constructs, but rather transparent data that can be sent over a network to a
+;; compatible interpreter elsewhere. This should help with portability. The
+;; notion on a "compatible interpreter" if fraught with complications which I'm
+;; currently trying not to think about.
+
+;; Similarly, function application is expressed as data:
+
+(apply env f args) -> ^Thunk {:env  (bind env (:args f) args)
+                              :form (:body f)}
+
+;; Which allows multiple return of *control* instead of simply multiple return
+;; of data.
+
+;; I'm currently focused on a contruct I'm calling `emit` which may only occur
+;; in tail position as a generalisation of `return` (which is implicit in lisp).
+
+(emit {continuation1 ^TailColl [v1 v2 ...]
+       continuation2 value
+       ...})
+
+;; These are in tail position because a Thunk is fully self contained in the
+;; sense that the calling environment is irrelevant to its behaviour:
+
+(eval ^Env _ ^Thunk t) -> (eval (:env t) (:form t))
+
+;; A ^TailColl is simply a vector that is tagged so that `eval` knows its value
+;; will never be used and need not be returned (but its contents must be used to
+;; build a list of thunks. .
+
+(eval env (emit {c ^TailColl args})) -> (map #(apply env c %) args)
+
+;; Which is a collection of thunks to be scheduled (somewhere, concurrently).
+
+;; The ability to "return" 0 or more values to the continuation is an attempt to
+;; use squiggol (or at least its subset present in clj's transducers) as a
+;; communication language as well as a computation language.
+;;
+;; My intuition is that this is very important, but actually getting it to work
+;; in a way of which I can make sense is proving a challenge.
+
+;; The effect is that messages can cascade across the network. The "functions"
+;; --- things which emit aren't quite functions, but I haven't a better name yet
+;; --- of the network are absolutely pure. They receive immutable collections
+;; that are backed by streams. Reading from these might park execution until
+;; values are available, but they can be treated as immutable vectors (of
+;; possibly infinite length), not a channels from which messages are read and
+;; then cease to exist.
+;;
+;; The counter operation to this is emission. Emitting multiple values to a
+;; continuation will put! those values onto a stream. Streams likely should be
+;; the continuation in question.
+
+;; But here's a fun one:
+
+(defn repl [env stdin stdout]
+  (let [[cursor form] (read env stdin)
+        e'            (eval env form)]
+    (emit {stdout (:return e')
+           recur  [e' cursor stdout]})))
+
+;; This is my current attempt at writing a repl process without side effects. Of
+;; course, `stdout` needs to be connected to something which reads from it and
+;; *does* the printing. And of course, the stream continuations put values on
+;; channels --- which is sort of the one side effect to control them all. But
+;; now read takes a vector of characters and (possibly waiting until input is
+;; available) returns the tail of that vector which hasn't been parsed yet and
+;; the form parsed from the (now dropped) head.
+;;
+;; `recur` is the strange one. This function both "returns" to the stdout
+;; continuation, and recursively invokes itself from tail position. This is how
+;; I'm dealing with stateful computations (like the fact the `eval` has to
+;; update the environment that will be used to evaluate later forms.
+
+;; This results in an entry point to the program as a whole that logically looks
+;; like:
+
+(defn main [IO]
+  (-> default-env
+      (read-code (:fs IO))
+      (repl (:stdin IO) (:stdout IO))))
+
+;; Where the system on which a program is going to run is passed to that program
+;; as an argument. From there it's up to the program to figure out how to make
+;; the system do the right thing.
+;;
+;; There are a lot of reasons for this design choice. A big one is separation of
+;; communication from computation: everything outside of the "pure" program must
+;; be communicated with, it cannot be computed with. Sandboxing is also an
+;; important issue. I want to be able to run untrusted code in a trusted
+;; environment by being able to remove its ability to make system calls. There's
+;; no global filesystem, just a think called `:fs` that gets passed to it. This
+;; isn't dependency injection, it's dependency isolation. The difference is that
+;; there's no automatic system to resolve these dependencies based on protocols
+;; and available implementing libraries. Rather, code that needs to make network
+;; requests must be passed streams that connect to the appropriate sockets. Thus
+;; we can be confident that code which does not have access to these streams
+;; cannot send data to anyone.
+;;
+;; Going further, we should be able to stub out these streams so that an app
+;; that refuses to work without GPS can be given fake GPS and not be able to
+;; know the difference. An app that you suspect of sending data to a third party
+;; can be passed fake HTTP machinery that logs requests sent to files and
+;; returns 404 to everything (without it having access to those files).
+;;
+;; Going deeper, we should be able to see where that code is invoking the crypto
+;; system and inspect messages *before* they are encrypted, so that apps cannot
+;; hide stolen information behind false claims of "security". "For your own
+;; saftey" should always be interpretted in the Orwellian reading. You should
+;; always be in control of your own machinery. That's a subtle argument waiting
+;; to be had when you let people shoot themselves in the foot.
+
+;; Well, that's not what I meant to write today, but it's good to get these
+;; ideas clear.
+
+;; And now, continuations: there's something not quite right with continuations
+;; the way I understand them, so I need to fix that.
+
+;; I'd like to store the set of possible continuations in the environment and
+;; allow (appropriately reflective) code to decide to whom to continue.
+
+;; The immediate problem with storing continuations in the environment is
+;; infinite regress when trying to update the environment (since updating the
+;; env datastructure itself invokes eval...). Should environments have a
+;; separate set of functions that operate at a lower level than `eval` itself. I
+;; don't like that. I want this program to not only eat, but fully digest, its
+;; own tail.
