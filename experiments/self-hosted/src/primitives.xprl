@@ -1,0 +1,70 @@
+;; Note *primitive*, not *builtin*. These aren't built in at all in the normal
+;; sense, but are rather are the boundaries of the system.
+;;
+;; Primitives are the things that aren't expressible directly in lisp. Either
+;; for performance reasons (math), or because they're outside of the scope of
+;; lambda calculus (communication), or sometimes because they're easier to
+;; express cleanly using another notation.
+
+;; We're not interested in dogma here.
+(ns xprl.primitive)
+
+(defn +
+  {:associative true
+   :commutative true
+   ;; N.B.: This reference to lli needs to be locked down. It's not just a
+   ;; symbol to be figured out by a linker, but an exact program being
+   ;; referenced. This makes the system hard to reason about at the edges, but
+   ;; it insulates it from drift under the hood.
+   :interpreter lli}
+  [x y]
+  ;; Since add is commutative, we only need to know what the types are, not the
+  ;; order. Assume they'll be passed in in some conventional sort order.
+  ;;
+  ;; I need all the help I can get to reduce the amount of low level code I need
+  ;; to write.
+  (let [dispatch {#{:i8} {:inst   :define
+                          :name   add-i8-i8
+                          :type   :i8 ;; TODO: check for overflow and bump to :i16
+                          :args   [{:type :i8 :arg x} {:type :i8 :arg y}]
+                          :blocks [{:ret  G_1
+                                    :inst :add
+                                    :type :i8
+                                    :args [x y]}
+                                   {:inst :ret
+                                    :type :i8
+                                    :arg  G_1}]}
+                  #{:i8 :i16} ...}
+        ;; N.B.: You can't actually add numbers until you have them, so even if
+        ;; you can't infer the types these *have* to be, you can just look and
+        ;; see at runtime.
+        types (find-real-types [x y])]
+    ;; Lots of hand waving, but the essential idea is that primitives are other
+    ;; interpreters. We can send them messages and receive messages back from them.
+    ;;
+    ;; In this case, `+` is an interpreter that expects pairs of ints. The code
+    ;; in `dispatch`, defines the `+` interpreter, but in order to get the
+    ;; interpreter to which to send our ints, we have to interpret the code that
+    ;; defines `+`, and the interpreter for which that code is intended is `lli`
+    ;; (in this case, we'll want to compile at some point).
+    ;;
+    ;; The nebulous goal is to make it clear where the agency comes from. What
+    ;; Brian Smith called the animus. In the end it always comes from the
+    ;; electronics of the hardware: current here causes such and such to happen
+    ;; according to the laws of physics. Explanations must end somewhere, but
+    ;; let's at least insist on explaining everything happening in software.
+    ((lli (get dispatch types)) [x y])))
+
+;; Maybe a better way to go about it would be
+
+(defn + [x y]
+  ;; TODO: Calling and return conventions, &c..
+  ((lli *implementation-as-a-whole*) ['+ (types [x y]) [x y]]))
+
+;; But these two ways of looking at it must both be true. They must both be
+;; applicable if we want to implement new primitives on special hardware (like
+;; the Vulkan API interpreter) without touching the rest of the implementation.
+;;
+;; Any code doing arithmetic must then be able to find the different applicable
+;; primitives and make an informed decision which to use (and don't forget SIMD
+;; instructions...). This is getting complicated.
