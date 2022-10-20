@@ -1,0 +1,130 @@
+;; CPS version of the core interpreter
+(ns xprl.core)
+
+;; Note that `defn` below is the usual `(def ~name (fn ~args ~@body)).
+;;
+;; But `defm` is more like typical `defmacro`. It receives its arguments
+;; unevaluated and may manipulate them as fexprs. Anything defined with `defm`
+;; is expected to manually call `eval` on its result (unless you really know
+;; that you don't want to). This is still being sorted out.
+
+;; Essentially anything defined with `defn` should do what you expect, but
+;; `defm` are reflective operations that take the entire program state and
+;; transform it to a new one.
+;;
+;; That needs a less concise explanation
+
+(defm eval [env form]
+  {:prev env
+   :ret  form})
+
+(defn lookup [env sym]
+  ;; something akin to
+  (get-in env [:names sym]))
+
+(defm eval [env ^Symbol sym]
+  {:prev env
+   :ret  (eval env (lookup env sym))})
+
+(defn reduce [f, init, coll]
+  (if (empty? coll)
+    init
+    (reduce f (f init (first coll)) (rest coll))))
+
+(defn transduce [xform f to from]
+  ;; This isn't quite right because of the lack of mutability in the core
+  ;; language. What would be a stateful transducer in clojure will here be a
+  ;; stateless function that simultaneously emits values to the next transducer
+  ;; and recurs (emits a new next state to itself). Details need to be worked
+  ;; out.
+  (let [g (xform f)]
+    (g (reduce g to from))))
+
+(defn into [to xform from]
+  (transduce xform conj to from))
+
+(defm eval [env ^Collection coll]
+  ;; wave hands
+  {:prev env
+   :ret (into (empty coll) (comp (map (partial eval env)) (map :ret)) coll)})
+
+(defm eval [env ^List form]
+  ;; Pass the fn and args as sexps to apply
+  (apply env (first form) (rest form)))
+
+;; We could probably get more efficient code gen by making then and else
+;; continuations and jumping directly, but I like the elegance of this approach,
+;; we'll see if it makes the cut
+
+(defm true [env then else]
+  (eval env then))
+
+(defm false [env then else]
+  (eval env else))
+
+;; N.B.: We allow dispatch on values as well as types. This allows us to add
+;; what are effectively keywords to the language without stepping up to a level
+;; inaccessible to developers using the language.
+(defm apply [env ^(quote xprl.core/if) _ [p-form then else]]
+  ((:ret (eval env p-form)) env then else))
+
+(defm apply [env ^(quote xprl.core/let) _ [bindings body]]
+  ;; REVIEW: This smacks of infinite regress.
+  (eval (:ret (eval env (reduce bind env bindings))) body))
+
+(defm apply [env ^(quote xprl.core/ns) _ [name imports]]
+  (eval env (-> env
+                (merge-imports imports)
+                (assoc :current-ns name))))
+
+(defm apply [env ^(quote def) _ [name body]]
+  ;; REVIEW: Do we evaluate the body on definition or on use? See eval^Symbol
+  ;; above.
+  (eval env (update env bind name (:ret (eval env body)))))
+
+(defm apply [env ^(quote fn) _ [args body]]
+  ^Fn {:env  env
+       :args args
+       :body body})
+
+(defm apply [env ^Fn f args]
+  ^Thunk {:env {:ret (eval env (destructuring-bind env (:args f) args))}
+          :form (:body f)})
+
+(defm eval [_ ^Thunk t]
+  ;; There's something special here. Thunks ignore the calling environment and
+  ;; so are context free (or perhaps contextually self contained).
+  (eval (:env t) (:form t)))
+
+(defm apply [env ^(quote defn) _ [name args body]]
+  (eval env (list 'def (list 'fn args body))))
+
+(defm apply [env ^(quote try) _ [body catch] cont]
+  (let [throw ^Fn {:env env
+                   :args (first catch)
+                   :body (cont (second catch))}]
+    (eval (bind env 'throw throw) body cont)))
+
+;; REVIEW: This is going to require primitives for manipulating the
+;; environment. Logically we want to use maps and assoc, but we need a way to do
+;; it without the circularity of calling eval inside eval.
+;;
+;; Maybe just a primitive `bind` which updates the environment would be enough,
+;; then we could bootstrap the rest with maps.
+
+;; The above abounds with use/mention errors. It's unclear where code is data
+;; and where code is intended to be reduces (executed).
+;;
+;; The goal is that code is always data unless explicitly marked otherwise. At
+;; least at the level of interpretation.
+
+;; Thus
+(eval env (+ x y))
+;; does not try to add x to y and pass that to eval. Rather (+ x y) is a
+;; datastructure passed to eval. The result is something akin to Smith's
+
+↓(+ ↓(resolve env x) ↓(resolve env y))
+
+;; where ↓ indicates that a form is to be interpreted from one level deeper than
+;; "here", that is it turn fexprs into code, the opposite ↑ is essentially
+;; `quote`.
