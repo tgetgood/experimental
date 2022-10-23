@@ -109,6 +109,127 @@ Bootstrapping is going to be fun.
      You know a book is above your paygrade when you read it and think "Hey they
      didn't do anything." and then realise that they've implemented an entire
      language without you noticing.
+   - [X] Guarded Commands, Nondeterminacy, and Formal Derivations of Programs
+     This is a very interesting idea, and I see why Hoare chose it as one of
+     the foundational constructs of CSP.
+
+     Nondeterminism was considered to be such and important thing in the past,
+     but I can't help but think of it as basic confusion between knowledge
+     (information) as an ontological vs epistemological topic.
+
+     The guarded if construct is very similar to squiggol filter/remove pair as
+     a branching construct. Just let both threads of execution run in parallel
+     and know that only one will make it past.
+
+     More interestingly, what if we replaced both kinds of guarded statement
+     with a single guarded expression which takes a map from predicates to
+     continuations and continues on each fibre whose predicate is true
+     (concurrently). You need strict immutability to make sense of anything in
+     this situation. But is that sufficient?
+
+     I should extend Dijkstra's calculus and try to construct a program from
+     it. That would at least give me a better intuition of what he's trying to
+     do.
+   - [X] Communicating Sequential Processes — Hoare 1978
+     I've read this before in the distant past. Time I took another look at it.
+
+     The first thing that jumps to mind is the lack of channels. Processes
+     communicate directly by knowing each other's names. That means that for A
+     to pass a message to B, not only must A know B's name (address, whatever),
+     but B must know A's name, and the two must be waiting for each other at
+     exactly the same time.
+
+     That's a highly artificial situation. The whole fabric is tightly coupled
+     (more like bound or braided) since everything must be aware of everything
+     else for anything to work.
+
+     The guards and coroutining lead to very elegant programs to solve problems
+     involving IO that only have ugly solutions in most languages. That's an
+     accomplishment.
+
+     Are multiple entry and multiple exit good things? They mostly seem to be
+     attempts to avoid function calls when possible.
+
+     Ultimately this paper is an exploration on the lines of The Art of the
+     Interpreter. It isn't a language, but a rough sketch and a lot of examples
+     of how you might solve real problems with the sketched solution.
+   - [X] The semantics of a simple language for parallel programming — Kahn 1972
+     This is an interesting take on things. It has more in common with what's
+     called CSP nowadays than do Hoare's early writings.
+
+     The main difference is that processes communicate over buffered channels
+     and in general to not stop.
+
+     I think that Hoare's concern about OSes that don't clean up and exit when
+     told to do so is misguided. Yes, a long running program should exit when
+     told to do so, but when it halts is completely independent of what it's
+     computing. Nothing within the program should ever cause it to halt, only
+     the signal coming from the operator outside. That's not halting in the TM
+     sense.
+
+     There's also a robustness question. Systems will crash, and so should be
+     designed to do so gracefully, without losing anything. Erlang manages this
+     with supervisor hierarchies. Kahn's approach is more academic and doesn't
+     deal with failure and recovery, but he works for a nuclear power
+     authority, so I think it's safe to say that safety and recovering from
+     failure are merely excluded from this particular treatment of the
+     problem.
+
+     Now to the paper itself. Kahn does not deal with non-determinism. Looking
+     back at a computation that has been running, you will see a definite set
+     of messages have been passed over each channel. You don't, a priori, know
+     what those messages will be — aside from their types in this case — but
+     they aren't non-deterministic. Each message was sent by a process, a
+     peripheral device, or a human. Each message was sent for a purpose and in
+     response to other messages. These causes are too complex to analyse
+     meaningfully, but pretending that there are no causes does not help us in
+     any way. The order of the messages depends on the topology of the network,
+     the properties of cables, noise, etc., and again taking a quantum mindset
+     that "we don't know and thus god can't know." gains us nothing.
+
+     So, looking backwards we will see a definite sequence of messages on every
+     channel. How can we constrain the processes so as to maintain mathematical
+     invariants on these sequences of messages even when we don't know what
+     they will be?
+
+     Working with the lattice of preficies of sequences is natural, but I
+     hadn't thought of it. The primary goal is always to constraint a sequence
+     based on our knowledge of a prefix of it.
+
+     The functional (or applicative) bias of using one function per output
+     seems overly complicated. We could as well use a single relation on the
+     combined set of inputs and outputs. But it remains to be seen what we can
+     infer from that. The author points out the presence of the relation, but
+     the idea of using relations to run computations backwards is far too new
+     for this paper to have addressed.
+
+     The induction proofs given only work if a finite buffering capacity is
+     sufficient. If too much data must be buffered and backpressure forces
+     producers to park until their output is needed, then the whole system can
+     easily end up in deadlock.
+
+     But over all, this seems like a wonderful way for a compiler to prove and
+     optimise programs. It seems it would be quite expensive, but in the
+     immutable context necessary for the proofs to make any sense, there's no
+     reason to ever work out a proof more than once (sign and publish it to a
+     repository, checking a proof is easier than coming up with it).
+
+     An early mention of the idea of lazy producers comes up as implementation
+     advice at the end of section 4.
+
+     Equivalence of schemata is decidable, independently of whether the
+     schemata in question are recursive or not.
+
+     That either makes these machines equivalent to primitive recursive
+     functions, or something else entirely. I suspect the former given the
+     strength of the theorems presented, but I don't know yet.
+
+     | A *good* concept is one that is closed
+     | 1. under arbitrary composition
+     | 2. under recursion
+
+     I like that advice. Now who is Scott? Possibly Dana Scott: "Outline of a
+     Mathematical Theory of Computation", 1970.
 * Languages to learn more about
   - Factor
   - Joy
@@ -122,8 +243,24 @@ Bootstrapping is going to be fun.
 
     That is the most understated attestation of excellence I've ever heard. I
     want to see it in action. Cool is only useful to draw the crowd.
-  - Microthreading
-    Not a language per se, but an interesting idea.
+  - Multilisp
+    Multilisp had a single concurrency primitive `pcall`.
+
+    `(pcall f a b c)` is like (call f a b c) — lisp-2 calling convention —
+    except the evaluation of the arguments `a`, `b`, and `c` happens in
+    parallel.
+
+    That's it. That's enough to get a decent amount of parallelism in lisp since
+    function application is pretty much the entire language.
+
+    But what if we automatically parallelise transducers (map, filter, etc.)?
+    That would give us the same effect for function calls since (eval '(f a b
+    c)) => (apply (eval f) (map eval '(a b c))), but it would also give us nice
+    optimisation for streaming computations. Choosing between simd, multiple
+    parallel coroutines, and gpu vector comp could then be a runtime
+    optimisation in the same location.
+
+    Just a thought.
 * Questions
 ** [2022-09-28 Wed 12:26] def, intern, and purity
    If there are no side effects, how does one implement `def`?
