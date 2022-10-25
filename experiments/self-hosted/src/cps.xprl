@@ -253,3 +253,175 @@
 
 ;; Would be the equivalent, except that it presupposes what we're going to do
 ;; with the chunks.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; An example of multiple continuation
+;;;;; (multiple value return to multiple locations concurrently)
+
+;; I'm using cps below to make the control flow explicit
+
+(def read-dispatch
+  {\( read-list
+   \[ read-vector
+   \{ read-map
+   \# read-indirect
+   \" read-string
+   \^ read-meta
+   ...})
+
+(def indirect-dispatch
+  {\{ read-set
+   ...})
+
+(defn read [env stdin cont]
+  (read-until env :EOS stdin cont))
+
+(defn read-until [env until stdin cont]
+  (let [c (first stdin)
+        f (get read-dispatch c read-atom)]
+    (if (= c until)
+      (cont :EOS)
+      (f env until stdin cont))))
+
+(defn resolve [env ^string token cont]
+  (cond
+    (number? token)         (parse-num token cont)
+    (starts-with? \: token) (read-keyword token cont)
+    :else                   (read-symbol token
+                                         (fn [s]
+                                           ;; Free variables are a read time
+                                           ;; error.  Function parameters aren't
+                                           ;; considered free in this sense
+                                           ;; REVIEW: What does `assert` do? We
+                                           ;; don't have exceptions, errors, or
+                                           ;; anything like that yet.
+                                           (assert (bound? env s) cont)
+                                           (cont s)))))
+
+(defn read-atom [env until stdin cont]
+  (split-at
+   until stdin
+   (fn [[token rest]]
+     (resolve
+      env token
+      (fn [val]
+        (cont :stdin rest :form val))))))
+
+;; Observations:
+
+;; 1) We call `cont`, thus poping the return stack, explicitly outside of
+;; primitives. We actually do that quite a bit. I need to read Steele's argument
+;; again and figure out what I'm misunderstanding.
+;;
+;; 2) I'm passing keyword args back to `cont` to distinguish return values. We
+;; could just say (cont [rest val]), but there's a self-documenting elegance to
+;; naming the things returned. It makes it clear that the function is returning
+;; multiple *kinds* of things, not just multiple values of the same kind.
+;;
+;; There's a fundamental difference between `div` which returns a quotient and a
+;; remainder, two different quantities which together define integer division,
+;; and `sqrt` which always returns 2 values, both of which are equally solutions
+;; to the equation x = y^2.
+;;
+;; I want to be able to make that distinction explicit. So here we would define
+
+(defn div [x y cont]
+  (cont :quot (quot x y) :rem (mod x y))) ; actual impl unimportant
+
+(defn sqrt [x cont]
+  (cont :return @(complex-roots x 2)))
+
+;; The syntax @[...] is just a reader macro for `values` in multi value return.
+;; We don't have `deref` so this isn't ambiguous.
+
+;; Aside from making it easier to keep values in registers as you pass them
+;; around, what is this continuation? It's not the traditional lisp functional
+;; GOTO. Well it's that but more complicated.
+
+;; `cont` above is the glue that turns a bunch of functions into a program. It's
+;; the top down half of the holarchy.
+
+;; Functions are autonomous units when viewed from within. What they do depends
+;; only on their arguments. But when viewed from a higher vantage point, they
+;; are subordinate, not only because a higher level process controls what
+;; arguments they will get, but also what happens to the values they produce.
+
+;; A generator is just
+
+(fn [x cont]
+  (cont :return @(lazy-seq ...)))
+
+;; But the real question now is: how do we control where these named returns go?
+;; And especially how do we do that without requiring programmers to write CPS
+;; code? The latter could be as simple as "everything is `async`, and all calls
+;; are `await`, and we just drop that syntax. So let's focus on the former.
+
+
+(defn repl [env stdin cont]
+  (read
+   env stdin
+   (fn [{:keys [stdin form *err*]}]
+     (if *err* (cont :*err* *err*)
+         (eval
+          env form
+          (fn [{:keys [result *err*] :as ev}]
+            (if *err*
+              (cont :*err* *err*)
+              (cont :stdout result
+                    :recur [(if (new-env? ev env) (:env ev) env) stdin]))))))))
+
+;; But now `cont` is responsable for recursion of `repl`. A trampoline,
+;; basically. Is that progress?
+
+;; A much cleaner solution might be:
+
+(defn repl [call-env stdin cont]
+  (read
+   env stdin)
+  (extend cont
+    (fn [{:keys [stdin form]}]
+      (eval
+       env form
+       (extend cont
+         (fn [{:keys [env result]}
+              (cont :stdout result
+                    :recur [(or env call-env) stdin])]))))))
+
+;; Where `extend` adds a new method to the continuation. This new method is the
+;; one that the immediate caller expects the function to return to. But `cont`
+;; also has an `error` return which it inherits from above unless overridden, so
+;; that `assert` can abort correctly without the intervening functions having to
+;; manage it. Of course they can override to catch the error and recover.
+
+;; At the compiler level, the last `cont` invocation would break into something
+;; like:
+
+(emit {:stdout result
+       :recur [...]})
+
+;; which in turn becomes
+
+(schedule ^Thunk {:env (bind env 'x result) :form '(emit *stdout* (str x)) :cont halt}
+          ^Thunk {:env  (bind env
+                             'call-env (or env call-env)
+                             'stdin stdin)
+                  :form '(repl call-env stdin)
+                  :cont scheduler})
+
+;; Which sets two coroutines going concurrently, one of which prints and halts,
+;; and the other loops by using the scheduler as a trampoline.
+
+;; `(emit *stdout* x)` is redundant but included here for clarity. How the
+;; "channel" (for lack of a better term) `*stdout*` is connected to the outside
+;; world is beyond the control of the user program as a whole. Unix (or
+;; whichever OS) decides what stdout is, and how programs interact with it. The
+;; hope is that we can wrap the OS semantics closely enough so that userspace
+;; programs can interact with pipes in the usual manner, but by isolating it
+;; like this you can call a sub-program and *not pass it stdout* which means it
+;; has no way to interact with that pipe. A program controls which syscalls are
+;; available to its subprograms, thus providing (hopefully) robust
+;; sandboxing. We'll see where that goes.
+
+;; Next steps: What should the surface level syntax look like? How do you
+;; manipulate the top down control pattern as you call functions? Callbacks are
+;; terrible for simplicity and comprehension.
