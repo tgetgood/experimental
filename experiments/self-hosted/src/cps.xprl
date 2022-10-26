@@ -401,7 +401,10 @@
 
 ;; which in turn becomes
 
-(schedule ^Thunk {:env (bind env 'x result) :form '(emit *stdout* (str x)) :cont halt}
+(schedule ^Thunk {:env (bind env 'x result)
+                  :form '(emit *stdout* (str x))
+                  :cont halt}
+
           ^Thunk {:env  (bind env
                              'call-env (or env call-env)
                              'stdin stdin)
@@ -410,6 +413,10 @@
 
 ;; Which sets two coroutines going concurrently, one of which prints and halts,
 ;; and the other loops by using the scheduler as a trampoline.
+
+;; This `schedule` needs, at the very least, a thread-local mutable variable to
+;; maintain the task queue. We can use work stealing to prevent needing true
+;; global variables. Maybe, needs thought.
 
 ;; `(emit *stdout* x)` is redundant but included here for clarity. How the
 ;; "channel" (for lack of a better term) `*stdout*` is connected to the outside
@@ -425,3 +432,89 @@
 ;; Next steps: What should the surface level syntax look like? How do you
 ;; manipulate the top down control pattern as you call functions? Callbacks are
 ;; terrible for simplicity and comprehension.
+
+;; One problem here is names. A function returns to entities based on names that
+;; are local to that process. That, in turn, means that the invoking function,
+;; which chooses what those names mean *must know what those names are*, which
+;; is problematic. I don't want that information to clutter up the entire
+;; system, most of the time a function that calls another doesn't need to know
+;; what it called its standard return pointer, only that it be set to a point
+;; determined by the caller.
+;;
+;; Conventional names could solve this... `:return:`, `:error:`, &c., but that's
+;; not a great solution. Standard names bind us to one choice of (human)
+;; language, one choice of character encoding, &c..
+;;
+;; Could we use standard references (gensyms, hashes, normalised locals,
+;; something unique and arbitrary) and alias those to the names in the code?
+;; That would go along with the general environmental design that all binding is
+;; giving a new (or another) name to an existing ~value~. The goal is to get
+;; away from names as much as possible internally. Names are metadata for
+;; humans, not compilers.
+
+;; On the flip side, if you don't understand how a function that you're invoking
+;; will pass values/control onwards, you're probably using it incorrectly.
+
+;; So maybe something like:
+
+(defn repl [e s]
+  (let [{:keys [stdin form]} (read e s)
+        {:keys [env val]}    (eval e form)
+        e'                   (if (top-level? val) env e)]
+    (emit {(:stdout (:system e)) val
+           (:recur e) [e' stdin]})))
+
+;; N.B.: `read` and `eval` only return normally from the point of view of
+;; `repl`. In fact, either one could signal an error, in which case `repl` will
+;; never regain control and the error handler in the calling environment will be
+;; invoked.
+;;
+;; It's a nice feature that `repl` doesn't have to account for control flow that
+;; bypasses its normal execution.
+
+;; `emit` is the magic word here. How the hell does `emit` work?
+;;
+;; Both `(:stdout (:system e))` and `(:recur e)` are continuation like things
+;; that get passed in by the caller as part of the environment. As is
+;; `(:assertion-error e)`, or whatever we're deciding to call that convention.
+
+(defn main
+  "Default entry point to start a repl."
+  [io]
+  (let [env   (assoc (default-env) :system (select-keys io [:stdout]))
+        stdin (:stdin io)]
+    (with-continuations env
+      [recur (fn [env stdin] (repl env stdin))
+       assertion-error       (fn [e]
+                               (with-continuations env
+                                 [return (:panic (:system io))]
+                                 (emit env {(:stderr (:system io)) e})))]
+      (repl env stdin))))
+
+;; Note that `stdin` is not passed as a continuation from io to the
+;; environment. This should prevent the user process from writing to `stdin`,
+;; which is desirable since from this program's point of view it's read only.
+
+;; But now `stdin` and `stdout` are two different kinds of objects. Or maybe
+;; it's better to say that they get different ends of the pipes. How does one
+;; distinguish? What happens if someone tries to emit to `stdin`? What if they
+;; try to read from `stdout`?
+
+;; Note that for this to work correctly, `emit` does not invoke its arguments,
+;; but schedules their invocation. Thus the continuations are invoked
+;; concurrently, but the parallelism depends on the hardware and load.
+;;
+;; `emit` must produce thunks, so it must be passed an environment and a form
+;; which is fully defined by that environment. By default we can use the calling
+;; environment. This should work in general since binding is lexical.
+
+;; With this in mind, let's try and write everything we need for the repl to see
+;; if this makes sense. If we find ourselves overriding continuations
+;; frequently, then something is wrong.
+
+;; Note also: values bound in the environment are lexically scoped, but
+;; continuations bound in the environment are dynamically scoped. This seems
+;; natural since the programmer decides what a function does (what the symbols
+;; in it mean) but a higher level system (generally at runtime) decides how
+;; functions are woven together into a program. We'll see how this plays out
+;; though.
