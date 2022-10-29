@@ -1,4 +1,4 @@
-;; CPS version of the core interpreter
+;rmG; CPS version of the core interpreter
 (ns xprl.core)
 ;; Note that `defn` below is the usual `(def ~name (fn ~args ~@body)).
 ;;
@@ -518,3 +518,116 @@
 ;; in it mean) but a higher level system (generally at runtime) decides how
 ;; functions are woven together into a program. We'll see how this plays out
 ;; though.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Ordering of messages
+
+;; Above, I'm assuming that messages delivered to different continuations so
+;; delivered concurrently. But I'm implicitly assuming that mulitple messages
+;; delivered to the same continuation are done so exactly once and in order.
+;;
+;; This is necessary if we're going to model sequential processing (squiggol,
+;; transducers, dataflow, call it what you will.).
+;;
+(defn apply [env ^Fn f args _]
+  (let [argvals (into [] (map (comp :form (partial eval env))) args)]
+    (eval _ ^Thunk {:env  (bind env (:args f) argvals)
+                    :body f
+                    :cont cont}
+          _)))
+
+;; It is correct for `map` to run the transform `(comp :form (partial eval
+;; env))` on each argument in parallel. There are no side effects (except for
+;; scheduling new work) so the order doesn't matter.
+;;
+;; But the order in which they are inserted into the collection to be returned
+;; is very important. The binding of that return collection to the arguments of
+;; `f` determines the meaning of this invocation of `f`.
+;;
+;; For the order not to matter, the reducing function (in this case `conj`)
+;; would need to be both associative and commutative.
+;; ---
+;; Binary operators should have metadata declaring them commutative,
+;; associative, monoids operations, group operations, etc. It gets a little
+;; complicated since the notion of algebra is a combination of set and
+;; operation. Maybe just metadata of the form
+
+(defn + [a b]
+  ^{:associative true
+    :commutative true
+    :identity    0
+    :inverse     -}
+  ;; primitive implementation
+  )
+
+;; Note that this will require that we define `+` and `-` together since
+;; otherwise one would have to refer to something that did not exist at the time
+;; of its creation.
+;;
+;; They are a twinned phenomenon, but that's not how they occurred to us in the
+;; first place.
+;;
+;; The phenomenon is really more subtle. We have independent notions of addition
+;; and subtraction, and then when we discover "groupness" those old notions of
+;; addition and subtraction take on new meaning. They aren't quite the same `+`
+;; and `-` that they were before we saw the connection.
+
+(defn primitive/+ [a b]
+  ;; impl
+  )
+
+(defn primitive/- [a b]
+  ;; impl
+  )
+
+(defn + [a b]
+  ^{:associative true
+    :commutative true
+    :identity    0
+    :inverse     -}
+  (primitive/+ a b))
+
+(defn - [a b]
+  ^{:associative    false
+    :commutative    false
+    :right-identity 0
+    :inverse        +}
+  (primitive/- a b))
+
+;; Of course it would be better if we viewed subtraction as the addition of a
+;; negative number (then we're still in the same group with all its nice
+;; properties), but that's a special case we're not interested in for the
+;; moment.
+
+(defn map [f]
+  (fn [cont]
+    (fn [x]
+      (cont (f x)))))
+
+(into [] (map f) xs)
+
+=> (transduce (map f) conj [] xs)
+
+=> (reduce (fn [acc x] (((map f) (partial conj acc)) x)) [] xs)
+
+;; N.B.: this isn't the traditional clojure reduce/transduce, since I'm not
+;; allowing the signal processor access to the result stream. That would allow
+;; processes to modify history, which has ugly ramifications.
+
+;; What we want `(map f xs) to mean is
+
+(eval env '(map f xs))
+=>
+(emit (f @xs))
+=>
+(schedule @(map #(^Thunk {:env (bind env 'x (eval env %))
+                          :form (f x)
+                          :cont ???})))
+
+;; the continuation from the thunks would have to number them and make sure that
+;; they continue on to the next step in order after being processed (possibly in
+;; parallel).
+
+;; Ugh this is getting mushy.
+
+;; We need some sort of sub-scheduling
