@@ -1,0 +1,168 @@
+;; Evolution of my thinking of signal processing.
+;;
+;; I don't want another dataflow language. I don't know what I want exactly,
+;; hence this repo, but I do want a language that can express dataflow patterns
+;; simply and natively (feeling like the same language). There's a question
+;; about bifurcating the language (think Haskell's point vs point-free styles)
+;; that I'm going to postpone for the moment.
+(ns xprl.sequential)
+
+;; To start, a stream is a possibly infinite sequence of values which will not,
+;; in general, all be available at once. There will be multiple implementations
+;; of streams, but let's leave that for later.
+
+(deftype ^:abstract Stream)
+
+;; A function that takes a stream as input gets an immutable collection which
+;; implements all of the standard sequential methods (first, rest, take, drop,
+;; reduce, etc.). Note that it does not support count nor last because these
+;; might not exist, and even if they do exist, we might not know that at
+;; any given moment.
+
+(defn read-token [until stdin]
+  (let [[head tail] (split-at (or until whitespace?) stdin)]
+    ;; read returns the tail of `stdin` so that the next iteration knows where
+    ;; to start. Streams are not stateful queue-likes where values are popped
+    ;; off as side effects of reading them.
+    ;;
+    ;; This has ramifications for memory usage equivalent to retaining the head
+    ;; of a lazy seq. In general you oughtn't.
+    [(resolve head) tail]))
+
+;; Streams are produced by functions which emit values. Thus
+
+(defn +-> [x y]
+  (emit (+ x y)))
+
+;; returns a stream that takes one value and then closes.
+
+;; But what about an infinite stream? An infinite stream can only be produced in
+;; response to an infinite quantity of input (no side effects, remember, not
+;; even /dev/random, clock time, or other innocuous seeming side effects).
+
+(defn map [f]
+  ;; I don't know about 2 args vs curried single args yet.
+  (fn [stream]
+    ;; `(first stream)` might park and wait for a notification that there's a
+    ;; value available on `stream` (or that `stream` has closed).
+    (when-let [x (first stream)]
+      (emit (recur (rest stream)) (f x)))))
+
+;; `emit` is a hard thing to describe. I've been trying to wrap my head around
+;; what I'm talking about for months now.
+;;
+;; Effectively, `emit` says "from here, we do multiple things
+;; concurrently". `map` *both* puts a value on the stream which is its return
+;; value, and recurs to consume the next value of its input stream.
+
+;; The runtime has to balance these two things. If there are multiple cores, it
+;; could do them in parallel, but that might not be the best way.
+
+;;;;; aside
+
+;; What's the difference between `map` above and
+
+(defn map [f s]
+  (when-let [x (first s)]
+    (lazy-seq (cons (f x) (map f (rest s))))))
+
+;; Superficially nothing. But whereas lazy seqs build cons cells and thunks at
+;; every step, `emit` is intended to be compiled away almost always, ideally to
+;; fused iteration whenever possible. Of course writing that compiler may not
+;; be easy.
+
+;;;;; edisa
+
+;; Composing stream functions is fairly straight forward in the one argument
+;; scenario:
+
+(defn filter [p]
+  (fn [stream]
+    (when-let [x (first stream)]
+      (if (p x)
+        (emit (recur (rest stream)) x)
+        (emit (recur (rest stream)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(comp (map f) (filter p))
+
+=>
+
+((fn [stream]
+   (when-let [x (first stream)]
+     (if (p x)
+       (emit (recur (rest stream)) x)
+       (emit (recur (rest stream))))))
+ (fn [stream]
+   (when-let [x (first stream)]
+     (emit (recur (rest stream)) (f x)))))
+
+=>
+
+(fn [stream]
+  (when-let [x (first stream)]
+    (if (p x)
+      (emit (recur (rest stream)) (f x))
+      (emit (recur (rest stream))))))
+
+;; Now how to do that as part of compilation is an open question. The
+;; transformation is systematic, but I need an algebra for it.
+
+(def xform (comp +-> (map inc) (filter even?)))
+
+(xform 4 4) -> EmptyStream
+(xform 4 5) -> [10]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; In general, a function can consume multiple streams. Since it gets the
+;; streams as immutable (eventual) values, it can perform any kind of
+;; coordination task one might desire and always maintains a consistent view of
+;; the world.
+;;
+;; But what about producing multiple streams?
+
+(defn split [p]
+  (fn [stream]
+    (when-let [x (first stream)]
+      (if (p x)
+        (emit {recur [(rest stream)] true x})
+        (emit {recur [(rest stream)] false x})))))
+
+;; This version of emit takes a map from streams to values, emitting those
+;; values with satisfy `p` to the `true` stream, and those which don't to the
+;; `false` stream.
+
+;; I might need a new syntax for this to make sense. Maybe something like
+
+(emit (recur (rest stream)) (>! true x))
+
+;; To indicate that `true` is a stream, rather than `{true x}` being a value to
+;; emit to the "default" stream.
+
+;; That brings up a good point: the default stream.
+;;
+;; Composition is an execise in avoiding names. The best languages for
+;; composition --- lambda caluculus, combinators, forth and its decendents ---
+;; all assidiously avoid names. And so I've been trying to avoid naming the
+;; output stream.
+
+;; The return value of `split` would be a map from names to streams
+
+{true  s1
+ false s2}
+
+;; Can a stream name be any value? I don't like the fact that they're
+;; undeclared, but the problem with declaring them is that it kills
+;; compositionality.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Observation: with the tools so far developed, we can't merge 2 streams in
+;; such a way that if one parks for hours, the other will keep going. We need
+;; something akin to Dijkstra's guarded non-determinism (`alts!`) to do that.
+
+;; Is that true? What if we had a primitive `ready?` which just returns a
+;; boolean (immediately) to tell you whether there's a value ready to go or if
+;; you'll have to wait? I think you can build everything from that without
+;; having to shake the urn.
