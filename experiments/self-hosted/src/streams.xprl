@@ -34,7 +34,7 @@
 (defn +-> [x y]
   (emit (+ x y)))
 
-;; returns a stream that takes one value and then closes.
+;; returns a stream that gets one value and then closes.
 
 ;; But what about an infinite stream? An infinite stream can only be produced in
 ;; response to an infinite quantity of input (no side effects, remember, not
@@ -114,6 +114,14 @@
 (xform 4 4) -> EmptyStream
 (xform 4 5) -> [10]
 
+;; Note the left-to-right composition, which is, I think, a better user
+;; interface than standard lisp nested calls: (f ∘ g ∘ h) (x) = (h (g (f x))).
+;;
+;; As with clojure's transducers we get the arrow syntax for free:
+;; (-> x f g h) = (h (g (f x)))
+;; but with the advantage that the argument to the composition is separated from
+;; the composition as such.
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; In general, a function can consume multiple streams. Since it gets the
@@ -156,6 +164,7 @@
 ;; Can a stream name be any value? I don't like the fact that they're
 ;; undeclared, but the problem with declaring them is that it kills
 ;; compositionality.
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Observation: with the tools so far developed, we can't merge 2 streams in
@@ -166,3 +175,245 @@
 ;; boolean (immediately) to tell you whether there's a value ready to go or if
 ;; you'll have to wait? I think you can build everything from that without
 ;; having to shake the urn.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Let's try and close the spiral: Why do functions need to return one value?
+;; That's the mathematical definition of a function, but multiple value return
+;; has been around for decades, and every language has some sort of a kludge to
+;; allow functions to return nothing. The reason, of course, being that pure
+;; mathematical functions are useless as a model of anything extra mathematical.
+;;
+;; What happens when a C-like language allows a function to return nothing? Null
+;; pointers. Null is the reified nothing of C, java, etc..
+;;
+;; Type systems generally have a singleton type (⊥, None, Nothing, etc.) which
+;; reifies this notion of "I have nothing to return".
+;;
+;; Alternative: If you have nothing to return, don't return anything.
+;;
+;; How would this play out?
+
+(defn get [m x]
+  (if (contains? m x)
+    (primitive-get m x)
+    (emit)))
+
+;; There is no `return`. Functions don't return to callers. There is no return
+;; stack (at this level). Rather, every function emits values to a Stream which
+;; is consumed by someone else. A naked expression in final position is
+;; automatically emitted so as not to clutter code.
+;;
+;; Annoyingly, emitting nothing requires us to explicitly call `emit` with no
+;; args. I don't what keywords or statements in the language . Maybe a primitive
+;; function aliasing `emit` like `close` or `abort`.
+;;
+;; Or, we could have a special value `nothing` — or to be poetic `silence` —
+;; which specialises emit to do nothing. Thus:
+
+(if (contains? m x)
+  (pget m x)
+  silence)
+
+;; would be transformed to
+
+(if (contains? m x)
+  (emit (pget m x))
+  (emit silence))
+
+;; where
+
+(defn emit [^(quote silence) _]
+  (emit))
+
+;; This is a keyword, but it is defined via userspace facilities rather than
+;; being built in to the language. (Umm, is `emit` something that can be
+;; specialised in user code? I'd like it to be, but at what cost?)
+
+;; Now what about
+
+(when-let [x (get m k)]
+  (f x))
+
+;; `(get m k)` returns a Stream, not a value, so under the hood this would have
+;; to become:
+
+(when-let [x (first (get m k))]
+  (emit (f x)))
+
+;; This can be done in general since we know that a function that only ever
+;; calls `emit` with one argument (or never explicitly calls it) can emit at
+;; most one value. If the Stream returned by `(get m k)` closes without a value,
+;; then we know that that computation is finished and failed to return anything.
+;;
+;; Thus, there is nothing to which to bind the local `x`, and the computation as
+;; a whole can never return anything.
+;;
+;; Thus non-returns are contagious, just like `nil` in clojure, or `Result` in
+;; rust.
+;;
+;; Interestingly, `when-let` is now a useless construct, since:
+
+(emit (f (get m k)))
+
+;; Will emit nothing if `(get m k)` itself emits nothing.
+
+;; We do need a new primitive in this case. Let's call it `if-let`:
+
+(defn get [m k default]
+  (if-let [v (primitive-get m k)]
+    v
+    default))
+
+;; `if-let` emits its first expression (in the calling environment extended with
+;; the new bindings) if it succeeds in binding all args, otherwise it emits the
+;; second (evaluated in the base calling environment).
+
+(defn apply [env ^(quote if-let) _ bindings then else]
+  (eval env `(let-raw ~bindings
+               (if (every? ready? (map second ~bindings))
+                 (eval
+                  (bind env
+                        (map first ~bindings)
+                        (map (comp first second) ~bindings))
+                  then)
+                 (eval env else))))) ; REVIEW: I should really define
+                                     ; `defmacro` for my own sanity...
+
+;; Where `let-raw` binds locals to the raw streams returned by function
+;; invocation, rather than to the values emitted. So `let-raw` is the actual
+;; primitive in this scenario. Can we go deeper?
+
+;; Squiggol fns are much cleaner now:
+
+(defn map [f]
+  (fn [s]
+    (emit (recur (rest s)) (f (first s)))))
+
+(defn filter [p]
+  (fn [s]
+    (let [x    (first s)
+          ;; This is probably not something we want to support, though it makes
+          ;; perfect sense and is kind of nice...
+          cont (recur (rest s))]
+      (if (p x)
+        (emit cont x)
+        (emit cont)))))
+
+(comp (map f) (filter p))
+=>
+(fn [s]
+  (let [x (first s)
+        c (recur (rest s))]
+    (if (p x)
+      (emit c (f x))
+      (emit c))))
+
+(defn partition [n]
+  (fn [s]
+    (emit (recur (drop n s)) (take n s))))
+
+;; All of these functions stop emitting when `(first s)` emits nothing (stream
+;; is empty), and stop recuring when `(rest s)` emits nothing (stream has no
+;; more values). Those 2 conditions aren't the same thing, though the first
+;; implies the second.
+;;
+;; Thus we automatically get the semantics of most actor systems or CSP
+;; implementations where closing channels cause cascades across the network to
+;; shutdown computations which are now "finished" (will no longer receive any
+;; new data).
+;;
+;; This gives us the very nice property that any signal processor (what Hickey
+;; called "transducer") will terminate iff its input streams eventually close.
+;;
+;; This will cease to feel as nice when we get into cyclic signal processing
+;; hypergraphs, but it's a nice property to have in the simple case.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; What about erorrs?
+
+;; We need standard abort on error facilities: `assert`, `panic`, & the like.
+
+;; But what do these do? How do we fit them into this stream processing context?
+
+;; Current idea: functions that emit a single stream don't name that
+;; stream. It's the "default out stream", and anything that wants a single
+;; stream gets that one. *But* these units can emit to other channels, and
+;; *upstream* processes can connect to those channels (how?)
+
+;; What does something like:
+
+(split #(cond
+          (zero? %) (emit (>! :error "found a zero"))
+          (pos? %) true
+          (neg? % false))
+       ...)
+
+;; do? Well it splits a stream into 2 streams, one of which contains positive
+;; values and the other negative. But it includes an assertion that incoming
+;; values are not zero. Any time a zero is found, it emits a message on a
+;; channel called `:error`.
+;;
+;; Note that this has the two fold effect of both filtering zeros out of the
+;; default stream, so that computation on the rest can progress, and sending
+;; information on a side channel that will inform someone above that errors have
+;; occurred (and the might want to abort the computation and reexamine the
+;; input).
+;;
+;; Note the fail and continue by default, as opposed to panic on failure by
+;; default.
+;;
+;; There's a tradeoff to be had between robustness and correctness. Neither one
+;; is very well defined in most computations, but a system that halts and shuts
+;; down when you push a button the programmer didn't know was there is no more
+;; useful than a program that goes berserk and starts firing missiles. Of course
+;; aborting is safer, but we want safe and useful, which requires preventing
+;; programs from firing missiles at all in almost all circumstances and letting
+;; a potentially wonky computation continue until someone can look at it and
+;; decide what to do. That's very wishy washy. I don't really know how to
+;; balance these. My opposition to staticallity makes me think that you can
+;; never know what's safe and what's not except at runtime. The problem with
+;; that is that we get something potentially as unreliable as people. The
+;; question is: can we get the robustness of people in exchange?
+
+;; How do you trust a program you can't prove correct? How do you trust your kid
+;; driving? Are these the same question?
+
+;;;;; Now how do these error streams trickle up?
+
+(defn rel [env stdin]
+  (let [[form rest] (read env stdin)
+        [env val] (eval env form)]
+    (emit (recur env rest) val)))
+
+(defn repl [IO]
+  ((map (:println (:stdout IO))) (rel default-env (:stdin IO))))
+
+;; But really we need to catch and visualise errors, so this would be more like:
+
+(defn repl [IO]
+  (wire {(map (:println (:stderr IO))) :error}
+        ((map (:println (:stdout IO))) (rel default-env (:stdin IO)))))
+
+;; Where `:error` somehow magically percolates up from everything below that
+;; emits to a stream named `:error` unless that stream is wired to something
+;; else. Basically streams inherit the non-default streams of their components
+;; (note that this is why we can wrap the call to (map (:println...)) in `wire`
+;; and get the error stream from its argument.
+;;
+;; But for this to be useful, every message must have provenance. We need to
+;; know where in the processing graph a message came from in order to act on it
+;; usefully. If we don't know which unit sent the divide by zero error, then we
+;; won't be able to tell which stream has zeroes that it oughtn't.
+;;
+;; In principle, I'd like to tag every value with the environment from which it
+;; originates. That way the form '(f x y) could be passed as a value which is
+;; both the description of a computation yet to happen (if `f`, `x`, and `y` are
+;; bound in the defining environment), and but is also just a value describing
+;; an s expression. That duality is sometimes critical.
+;;
+;; Of course, that sort of information can't be passed around at runtime, it
+;; will grind everything to a halt. But the runtime must have a way to get it. I
+;; don't yet know how this could be accomplished efficiently. Hell reflection
+;; just isn't efficient most of the time, so maybe that's not the issue.
