@@ -417,3 +417,141 @@
 ;; will grind everything to a halt. But the runtime must have a way to get it. I
 ;; don't yet know how this could be accomplished efficiently. Hell reflection
 ;; just isn't efficient most of the time, so maybe that's not the issue.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; A further wrinkle.
+
+;; Above I'm bluring the line between streams and values. By using `emit` to put
+;; a value on a stream *and* to return a value from a function (or not), I've
+;; created an ambiguity.
+;;
+;; Modelling function return by a stream that will emit zero or more values is a
+;; useful way to model the semantics of the language. Message passing all the
+;; way down, if you will.
+;;
+;; But now we have implicit streams from which values are automagically
+;; extracted on demand, and explicit streams which are passed around as
+;; values. Being able to make the implicit streams explicit is probably
+;; important — and simple enough — but we have a problem when it comes to
+;; semantics.
+
+;; What does
+
+(f x)
+
+;; mean?
+
+(reduce + (map inc stream))
+
+;; passes a stream to `map` which produces a second stream, which is passed to
+;; reduce, which returns a value (stream of one emission). What is different
+;; between the return value of `map` and the return value of `reduce`?
+
+;; and what about
+
+(even? (inc 4))
+
+;; `inc` takes a value to a value, as does `even?`.
+
+;; It's essentially a typing problem since we have two kinds of `return`
+;; expression.
+
+;; `map` and `reduce` are both circular in the sense that they emit to `recur`
+;; thus running in loops until there's no more input.
+
+;; But `reduce` is more like `inc` than `map` in the sense that it emits at most
+;; one value on the default output channel.
+
+;; Thus two distinctions: circular vs circle free — maybe I shouldn't be
+;; stealing Turing's jargon, but this feels similiar to me — and value valued vs
+;; stream valued.
+;;
+;; Two seemingly orthogonal distinctions. A circle-free function doesn't loop
+;; back to itself, and thus can only ever call emit once. Does this mean that
+;; the number of values emitted is bounded statically? I would imagine so.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; I might be going about this all wrong. It occurs to me that I'm really
+;; talking about two different perspectives. Data streams vs control streams.
+
+;; Every application takes a collection of control streams and returns a
+;; collection of control streams. It would be better to say that the compiler
+;; takes an applicative and a collection of control streams and returns a
+;; collection of control streams.
+
+;; At runtime, when a value is available on each inbound control stream, the
+;; function is invoked on those values and the result is put on the outbound
+;; streams.
+
+;; At this level of abstraction, `map` takes a control stream which yeilds a
+;; data stream, and retuns a control stream which yields a data stream.
+
+;; I expect we'll want to be able to convert control streams to data streams and
+;; vice versa, but let's hold off on that for the moment.
+
+;; The unintuitive part of this is that the interpreter doesn't execute, per
+;; se. Rather, the interpreter walks the tree of sexps, builds up a
+;; (hyper)graph of dataflow, and puts values into control streams. From there,
+;; the computation cascades through the graph until ...? forever? good
+;; question. Until there's nothing left to do. Which might be forever.
+
+;; The interpreter animates a static description into a dynamic system. Thus the
+;; animus is transmitted from one level of interpretation to the next. Defining
+;; that is going to be exciting.
+
+;; From this runtime's point of view, are data streams and control streams
+;; different? I think they have to act identically. The distinction is
+;; structural, not effective.
+
+;; Is a data stream really just a control stream of a sub interpreter? A là
+;; 3-lisp? That might be a useful way to characterise it. Converting between
+;; data and control streams is then a reflective operation.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; The above section might be a distraction.
+
+;; Do we need an explicit "return nothing" construct? (`(emit)`, `pass`, `silence`, etc.?).
+;;
+;; I suspect that `when` is all we need.
+
+;; Do we have any use for multi-value return? (control streams in the lingo of
+;; the above block).
+
+;; What do multiple return values mean?
+;;
+;; return a tuple, just in registers?
+;;
+;; run one copy of the calling continuation per return value?
+;;;
+;;; This would be a reasonable symmetry with "do nothing when there's nothing to
+;;; return".
+;;;
+;;; This is similar to what `emit` does: schedules multiple continuations with
+;;; multiple values from the current point in the computation.
+;;;
+;;; Could this be used to implement `emit` if the continuation is the scheduler?
+
+;; If a function that calls `emit` in tail position returns a stream (or a
+;; metaobject containing a default stream and ancilliary streams), then a
+;; `recur` call inside `emit` cannot result in the same function being run
+;; again, since that would, in turn, return another stream metaobject, instead
+;; of putting values on the stream.
+;;
+;; Thus `emit` will have to compile away and not exist in the runtime code.
+
+(defn map [f]
+  (fn [s]
+    (emit (recur (rest s)) (f (first s)))))
+
+;; becomes something like:
+
+(defn map [f]
+  (let [mo (meta-stream)]
+    (fn [s]
+      (go-loop [s s]
+        (>! mo :default (f (first s)))
+        (recur (rest s)))
+      (return mo))))
