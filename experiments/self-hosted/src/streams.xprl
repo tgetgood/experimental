@@ -555,3 +555,54 @@
         (>! mo :default (f (first s)))
         (recur (rest s)))
       (return mo))))
+
+;; In the runtime. I don't like that as a notation for the running process. I
+;; don't want sequential processes. What do I want? Damned if I know.
+
+;; Control isn't sequential. It's a tree. From any point in the computation,
+;; multiple things might happen going forward. That's really what side effect
+;; are: trying to do multiple things at once.
+
+;; Control is a tree, not a graph, because control never joins. Threads
+;; terminate when they have nothing left to do, but they don't return control to
+;; their callers, they simply wither and die. Once there is nothing left to do,
+;; no threads of execution left to run, the program is done. There is no
+;; "answer". Programs don't return values. They run until there's nothing left
+;; to do, then they stop.
+
+;; These threads of execution can start multiple threads themselves, but only
+;; from tail position, because otherwise keeping track would be a
+;; nightmare. Tail position is a constraint that I'm imposing based on my own
+;; aesthetics. I don't have solid theoretical grounds to insist on it.
+
+;; Some threads of execution simply pass a message. Thus (emit (recur ...) &
+;; vals) starts two threads, one of which repeats the computation which just
+;; ended, and the other which passes a stream of messages. Message passing is an
+;; action, an active phenomenon.
+;;
+;; Take (map + a b) where a and b are Streams. Streams aren't buffers, they
+;; aren't actors or mailboxes, they're an abstraction of "place whence comes
+;; data" or something of that sort.
+;;
+;; In practice, there's a thread emitting values to a channel, and we call that
+;; stream of emissions `a`. There's a similar process emitting values to `b`.
+;;
+;; The expression `(map + a b)` says wait for exactly one value on `a` and one
+;; on `b`, and when you have those two values, compute their sum and emit that
+;; value.
+;;
+;; `map` is a coordination point. One thread ends in a `(emit (recur ...) x)`
+;; which start 2 threads, one of which loops, and the other passes the message x
+;; to our outer `map` which perceives it as coming on stream `a`. The outer map
+;; gets that value and if it already has the value for `b` it registers a thunk
+;; to run (sum then emit), but if it doesn't have a value from `b`, it stores
+;; the value from `a` (nevermind how or where for the moment) and waits. Either
+;; way, the thread of control which passed the value to our outer map is now
+;; complete and dies. A new thread of control might be born after the message
+;; passing thread dies, but that new thread is forked from the caller of the
+;; outer `map`, not from either message passing thread.
+;;
+;; So we have a hypergraph of values flowing through the network, but execution
+;; (control) is a tree.
+
+;; That's an important point, I think.

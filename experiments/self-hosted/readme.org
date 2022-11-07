@@ -568,3 +568,64 @@ Bootstrapping is going to be fun.
 
     It's not very pretty, but I think it works. Implementation will tell where
     the weakest parts of the hand waving lie.
+** [2022-11-06 Sun 10:41] Are Exceptions Necessary?
+   Section 3.2 of Lambda the Ultimate Imperative brings up an interesting
+   point. Well, exceptions are nothing new nowadays (though they were somewhat
+   new back then), but reading about them in this context — especially the name
+   "escapes" — gave me an idea:
+
+   The exception in the example, and many exceptions in my experience, are
+   really just a way to interleave a question about a whole collection with a
+   computation iterated over its elements. In this case we first ask "is any
+   element zero?" and if so just return zero, if no elements are zero, we
+   proceed to calculate the harmonic mean. So something like:
+
+   (if (any? zero? coll) 0 (/ (count coll) (reduce + (map reciprocal coll))))
+
+   The code above is much cleaner, its intention is clear, it's so simple as to
+   be obviously correct. The cost we pay for that simplicity is scanning the
+   whole collection twice, which depending on the size of the collection might
+   be an unreasonable thing to ask.
+
+   But what about loop fusion? Escapes (exceptions) provide a way check a
+   predicate as you go and abort the running computation, jumping to some other
+   computation instead. They provide a manual mechanism by which to fuse the
+   loops, but can't we do this automatically?
+
+   In this trivial example it's not difficult to cook up several ways of
+   accomplishing it, but in general I doubt it will be simple. Still, it's
+   worth pursuing.
+
+   The implications are also worth investigating. In a language with no side
+   effects, an intensional (non applicative) `if` is unnecessary. For the sake
+   of performance we don't, in general, want to compute a value that won't be
+   used, but there's no harm in doing so because simply running a computation
+   can't effect the world in any way. We have to be careful about transmitting
+   messages out of the if, since sending messages to both continuations would
+   violate the meaning of "if", but computing, in itself, is fine.
+
+   This brings us back to the holarchic structure. The consequents
+   (continuations, branches, whatever) of the `if` are holons. They are wholes
+   unto themselves and can create sub structures and freely pass messages to,
+   from, and between those substructures. But the consequents cannot send
+   messages to anything they did not create. They cannot effect the outside
+   world except via channels that were passed to them when they were
+   created. Thus the `if` controls how its consequents may and may not talk to
+   the outside world. Consequently, the `if` might run both consequents, and
+   the predicate, all in parallel, connecting their output channels to buffers
+   that for the moment go nowhere, and only when the `if` has a firm answer
+   from the predicate, does it connect the buffer from the appropriate
+   consequent to its own output channels.
+
+   Thus can we, in principle, safely fuse the iteration of the predicate with
+   the iteration of the consequents (could we conceivably fuse all three
+   safely? that's a cool question).
+
+   There are other uses of exceptions. Propagation of errors can probably be
+   handled by the "STDERR" channels that are implicitly pass everywhere, though
+   the ergonomics are as yet a mystery. Creating tail recursion where there was
+   none previously (Akka) is an ingenious kludge, but we don't need it.
+
+   Exceptions are just controlled GOTOs that we tolerate because they're
+   "exceptional", so I'm not going to cover all of their possible uses. But
+   that's not a problem.
