@@ -402,7 +402,7 @@
 ;; (note that this is why we can wrap the call to (map (:println...)) in `wire`
 ;; and get the error stream from its argument.
 ;;
-;; But for this to be useful, every message must have provenance. We need to
+
 ;; know where in the processing graph a message came from in order to act on it
 ;; usefully. If we don't know which unit sent the divide by zero error, then we
 ;; won't be able to tell which stream has zeroes that it oughtn't.

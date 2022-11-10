@@ -1,5 +1,5 @@
 ;; Note *primitive*, not *builtin*. These aren't built in at all in the normal
-;; sense, but are rather are the boundaries of the system.
+;; sense but are the boundaries of the system.
 ;;
 ;; Primitives are the things that aren't expressible directly in lisp. Either
 ;; for performance reasons (math), or because they're outside of the scope of

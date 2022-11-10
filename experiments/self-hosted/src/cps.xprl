@@ -319,9 +319,9 @@
 ;; multiple *kinds* of things, not just multiple values of the same kind.
 ;;
 ;; There's a fundamental difference between `div` which returns a quotient and a
-;; remainder, two different quantities which together define integer division,
-;; and `sqrt` which always returns 2 values, both of which are equally solutions
-;; to the equation x = y^2.
+;; remainder, two different kinds of quantities which together define integer
+;; division, and `sqrt` which always returns 2 values, both of which are equally
+;; solutions to the equation x = y^2 and thus of the same kind.
 ;;
 ;; I want to be able to make that distinction explicit. So here we would define
 
@@ -332,7 +332,7 @@
   (cont :return @(complex-roots x 2)))
 
 ;; The syntax @[...] is just a reader macro for `values` in multi value return.
-;; We don't have `deref` so this isn't ambiguous.
+
 
 ;; Aside from making it easier to keep values in registers as you pass them
 ;; around, what is this continuation? It's not the traditional lisp functional

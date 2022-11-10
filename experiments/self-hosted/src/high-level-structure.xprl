@@ -34,7 +34,7 @@
 ;; function are *not* flubs (to use Hoyte's terminology). They are not opaque
 ;; constructs, but rather transparent data that can be sent over a network to a
 ;; compatible interpreter elsewhere. This should help with portability. The
-;; notion on a "compatible interpreter" if fraught with complications which I'm
+;; notion of a "compatible interpreter" is fraught with complications which I'm
 ;; currently trying not to think about.
 
 ;; Similarly, function application is expressed as data:

@@ -1,0 +1,98 @@
+;; what's the minimum impl to have a working repl?
+(ns xprl.core)
+
+;;;;; Reader
+
+;;;;; Eval
+
+(defn eval [env form]
+  (emit ^:default :val form :env env))
+
+(defn eval [env ^Symbol form]
+  (emit ^:default :val (get-in env [:names form]) :env env))
+
+(defn eval [env ^Collection form]
+  (emit :env env
+        ;; This might be too high level at this point.
+        ^:default :val (reduce conj (empty coll) (map (partial eval env) coll))))
+
+;;;;; Application
+
+(defn eval [env ^List form]
+  ;; By relinquishing control to `apply`, everything it does goes back to the
+  ;; caller at this point. Unconditional transfer of control.
+
+  ;; Apply receives unevaluated arguments. This is critical
+  (apply env (first form) (rest form)))
+
+;;;; Meta level "builtins". These are the only paths that ever modify the
+;;;; "global" (i.e. REPL) environment, which is a curious state of affairs.
+
+;; N.B.: These can be overridden in userspace, so they aren't really built in,
+;; they just come with the vanilla system.
+
+;; Below we need to emit the single value to :env because that's not the default
+;; channel of `eval`. But as it's the only channel in these `apply`s, it is
+;; their default channel.
+
+(defn apply [env ^{quote xprl.core/ns} _ [ns-name & imports]]
+  ;; TODO: Deal with imports
+  (emit :env (assoc env :current-ns ns-name)))
+
+(defn apply [env ^{quote xprl.core/def} _ [name form]]
+  (emit :env (assoc env (update env :names assoc name (eval env form)))))
+
+(defn apply [env ^{quote xprl.core/defn} _ [name args body]]
+  (emit :env (assoc env
+                    (update env :names
+                                (assoc name (eval env (list 'fn args body)))))))
+
+;;;; Language "builtins"
+
+(defn apply [env ^{quote if} _ [pred then else]]
+  (eval env (list 'xprl.core/if* (eval env pred) then else)))
+
+(defn apply [env ^{quote xprl.core/if*} _ [^true _ then else]]
+  (eval env then))
+
+(defn apply [env ^{quote xprl.core/if*} _ [^false _ then else]]
+  (eval env else))
+
+(defn apply [env ^{quote let} _ [bindings body]]
+  ;; TODO: Define backquote, unquote, and splice
+  (eval env `(~(list 'fn (mapv first bindings) body) ~@(map second bindings))))
+
+(defn apply [env ^{quote fn} _ [args body]]
+  ;; ^Fn is just a type tag. Types are just tags for the sake of polymorphic
+  ;; dispatch (at this level).
+  (emit :env env :val ^Fn {:args args
+                           :body body
+                           :env  env}))
+
+(defn apply [env ^Fn f args]
+  ;; This is where the magic happens. This is the only place in a pure lisp
+  ;; where threads of execution branch. Control branches backwards, data streams
+  ;; converge going forwards. This is a symmetry that I'm still wondering about.
+
+  ;; Semantically this is what I think I want. But the implementation I'm
+  ;; looking for is more of a state machine of flowing messages.
+  (let [vals (pmap (partial eval env) args)
+        e'   (bind (:env f) (:args f) vals)]
+    (eval e' (:body f))))
+
+;;;;; TODO: What about streams?
+
+;;;;; REPL
+
+(defn repl [env stdin]
+  (let [{:keys [cursor form]} (as-strem (read env stdin))
+        {:keys [env val]} (as-stream eval env form)]
+    (emit (recur env cursor) :stdout val)))
+
+(defn main [IO]
+  (wire [:stdout (map (:println (:stdout IO)))]
+        (repl (default-env) (:stdin IO))))
+
+;; TODO: Define `wire` (precisely!)
+;;
+;; TODO: Define IO!
