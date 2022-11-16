@@ -1,0 +1,147 @@
+(ns xprl.core) ; versions? where we're going we don't need versions.
+
+;; so far we've figured out via Steele that function application is just
+;; extension of the lexical environment. All you really need to do to evaluate a
+;; function is bind the passed arguments to the formal parameters and then
+;; evaluate the body in that new environment. That's quite elegant.
+;;
+;; But what about continuations? The fact is that functions need to be able to
+;; emit different kinds of signals. `quot` and `rem` as the separate return
+;; values for `div` is a canonical example. The quotient and remainder are
+;; different kinds of quantities; despite the fact that they're both integers,
+;; they mean quite different things. The contexts in which the two quantities
+;; are intended to be used are not interchangeable.
+
+;; As `emit` is the fundamental primitive message passing mechanism, `wire` is
+;; the fundamental primitive message routing mechanism.
+;;
+;; Remember that units emit messages on named channels --- named by the emitter
+;; --- but don't know to whom those messages will be routed (if to anyone).
+;;
+;; Decoupling the emission of messages from the routing lets invoked units be
+;; fully independent within their own execution context, but allows other units
+;; higher up the execution hierarchy control where messages go, and thus control
+;; lower units. This is based on (my interpretation of) Koestler's idea of
+;; holarchy.
+
+;; Examples
+;;
+;; Let's take the example of computing the harmonic mean of a stream of numbers.
+;;
+;; The clearest solution to this problem is:
+
+(defn harmonic-mean [xs]
+  (if (any? zero? xs)
+    0
+    (/ (count xs)
+       (reduce + (map #(/ 1 %) xs)))))
+
+;; But this makes three passes over the collection (one more if it doesn't store
+;; its own length, and one less if the map and fold get fused by the compiler).
+
+;; We can do it in one pass as:
+
+(defn invert [x]
+  (fn [[x & xs]]
+    (if (zero? x)
+      (emit :zero true)
+      (/ 1 x))))
+
+(defn harmonic-mean [xs]
+  (wire [:zero (fn [_] (emit ^:close 0))
+         _ (fn [[count sum]] (/ count sum))]
+    (reduce (fn [[count sum] x] [(inc count) (+ sum x)]) [0 0] (map invert xs))))
+
+;; (this assumes transducer like map-fold fusion, which is very desirable anyway)
+
+;; I don't like the incidental complexity of this solution. I think we should be
+;; able to generate something like it by loop fusions and branch convolution,
+;; but I don't want to get into that now.
+
+;; The invert function can "return" values on one of two channels. One is named
+;; `:zero`, and the other is unnammed. The (unique) unnamed channel is what the
+;; caller sees as the "normal return" value of a function invocation.
+
+;; The normal return is passed up to map, which passes it on to the reduction
+;; function which then returns a value. In the `wire` expression, we have a
+;; channel named `_` which is my interim name for this "default return channel".
+
+;; If everything takes the happy path, this code works just like it would in
+;; clojure, but if there's a zero in the stream of `xs` then we need to not only
+;; not invert it, but abort the entire stream computation and return
+;; immediately. Well we don't need to, we could invert all non-zero numbers and
+;; compute a wrong harmonic mean that we would then throw away, but that's a
+;; waste of effort. Not to mention the risk of someone using the nonsense result
+;; anyway.
+
+;; When `invert` sees a zero, it emits `true` on the `:zero` channel. Since
+;; nothing in between `invert` and `harmonic-mean` intercept messages on this
+;; channel, it flows up freely. This is similar to escapes (exceptions) in this
+;; case, but in general exceptions are a single thread of control, whereas
+;; `wire` expressions over cables can fork into concurrent execution (sometimes
+;; you want all messages on different channels to be processed but by different
+;; processors).
+
+;; Note on names: I'm using the word `cable` to denote a unit that emits on
+;; multiple channels. It's helpful to have the analogy with a bundle of wires,
+;; but I don't know how far that analogy will hold.
+
+;; When the message on the `:zero` channel reaches the `wire` expression in
+;; `harmonic-mean` it is passed to the connected function which ignores the
+;; message --- because in this case the existence of the message is the real
+;; message --- and `emit`s the value `0` on the default return channel. This is
+;; because `0` is a correct output of the function `harmonic-mean` in this
+;; case. It's just a normal return value.
+
+;; The metadata `^:close` passed to `emit` is meant to indicate that this is the
+;; last thing this unit will emit. It is a signal to the runtime that the whole
+;; operation below this point can be killed and forgotten. It's a similar notion
+;; to early return in clojure's reducers.
+
+;; A unit can emit many values to its default return channel. Units that do so
+;; are stream generators, `map` being the canonical example. This is why we need
+;; an explicit way to close a unit and prevent more results from being
+;; generated.
+
+;; Another consideration for `wire` is the fact that units can emit message on
+;; channels their callers are unaware of. We don't want java's checked
+;; exceptions where orthogonal functionality must be threaded all through your
+;; code. So it's critical that `assert` can emit to a channel called
+;; `:assertion-failure` and that only units in the hierarchy above who know how
+;; to handle such errors have to worry about their existence.
+
+;; As a default there will be a top level error handler that catches these types
+;; of errors and panics, but that functionality needs to be pluggable.
+
+;; So channels that are mentioned in a `wire` expression get connected and their
+;; messages rerouted, but those which are not mentioned pass on through up the
+;; hierarchy until something handles them.
+
+;; That's necessary. I can't get around it. But sometimes it's
+;; problematic. Particularly when running untrusted code.
+;;
+;; The most valuable aspect of holarchic isolation is that you can run untrusted
+;; code and let it think it can do what it wants: it actually can't tell that
+;; it's in a sandbox, but it is. Viewed from the invoking agent's level, the
+;; untrusted code only has exactly those channels to the outside world it was
+;; explicitly given. But that means that extra emission channels back out of the
+;; sandbox must be isolated.
+
+;; So we need an expression `isolate`, or maybe `ground` which grounds out all
+;; wires in a cable by just dumping all messages into /dev/null (effectively).
+
+;; This can be used to sandbox code. Route and use whatever messages you care
+;; to, and prevent any others from leaving.
+
+;; Of course you might miss things if you do this. In particular you should
+;; handle errors in your dependencies in some way other than by ignoring them.
+
+;; In that light, it's better to isolate a cable by dumping all messages from
+;; its channels onto a single catch-all channel whose messages could at least be
+;; logged. That way you can know what the units down there are up to, at the
+;; very least.
+
+;; The goal of wire/emit is to let us write somewhat idiomatic lisp code that
+;; actually creates a message passing (dataflow, sort of) topology and sets a
+;; dynamic system in motion. Dataflow languages tend to fail at the point you
+;; need complex control, and that's one of the things I'm trying to fix.
