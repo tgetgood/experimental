@@ -1,0 +1,3 @@
+;; This language makes assumptions about what hardware is that are not entirely
+;; compatible with standard ideas, so I think it's necessary at this point to
+;; define the (virtual) machine that we're expecting to operate on.

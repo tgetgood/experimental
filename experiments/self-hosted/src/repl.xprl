@@ -76,7 +76,7 @@
 
   ;; Semantically this is what I think I want. But the implementation I'm
   ;; looking for is more of a state machine of flowing messages.
-  (let [vals (pmap (partial eval env) args)
+  (let [vals (map (partial eval env) args)
         e'   (bind (:env f) (:args f) vals)]
     (eval e' (:body f))))
 

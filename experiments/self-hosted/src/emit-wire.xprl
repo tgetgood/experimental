@@ -60,7 +60,7 @@
 
 ;; The invert function can "return" values on one of two channels. One is named
 ;; `:zero`, and the other is unnammed. The (unique) unnamed channel is what the
-;; caller sees as the "normal return" value of a function invocation.
+;; caller sees as the "normal return" path of a function invocation.
 
 ;; The normal return is passed up to map, which passes it on to the reduction
 ;; function which then returns a value. In the `wire` expression, we have a
@@ -145,3 +145,119 @@
 ;; actually creates a message passing (dataflow, sort of) topology and sets a
 ;; dynamic system in motion. Dataflow languages tend to fail at the point you
 ;; need complex control, and that's one of the things I'm trying to fix.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; We now have 4 primitives: `emit`, `wire`, `cut`, and `ground`.
+
+;; I believe that those are sufficient, but I won't be surprised if more prove
+;; themselves to be necessary.
+
+;; Now with primitives like this, I definitely need a runtime. And I won't be
+;; able to bootstrap it directly from llvm-ir, there's simply too much going
+;; on.
+
+;; Clojure, as much as I'd love to use it in this instance, is not an
+;; appropriate fit here since getting off of the JVM will prove too much for
+;; me. So, perhaps back to the julia runtime of last summer.
+
+;; Or, maybe I need to think more carefully about what I mean by a program.
+
+;; Look at the execution model: standard metacircular interpretation builds up a
+;; topology over which messages can flow. Eventually messages reach primitives,
+;; which are not opaque builtins as is traditional in lisp, but are ways of
+;; sending messages to *other interpreters*.
+
+;; That's not entirely well defined, but in essence the primitive is a
+;; definition of another interpreter plus an interpreter on which to interpret
+;; the definition. So a message passed to a primitive is actually passed to
+;; another interpreter which does not exist statically.
+
+;; How the fuck is that supposed to bottom out? I don't know. This is my next
+;; frontier.
+
+;; That's a lie. I do know in a very hand wavy sense. The bottom most
+;; "interpreter" is the physical circuitry and the bottom most "message" a
+;; pattern of electric potentials.
+
+;; The path from xprl code down to electric potentials is both finite and well
+;; defined, in some sense of that term. But it's far from clear.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Notice that above there are still some ambiguities between values and streams.
+
+;; Most notably `wire` maps streams to functions. Streams emit zero or more
+;; values, but functions expect one. More correct would be for `wire` to link
+;; streams to signal transformers, `(map f)` and the like.
+
+;; But, in this case both "streams" (`:zero`, and `_`) emit exactly one
+;; value. Well that's not true without `cut` or `(emit ^:close ...)`, that's why
+;; I invented that construct.
+
+;; But maybe this extra piece of machinery is actually a sign of my confusion.
+
+;; Without `cut` `invert` will emit a message on `:zero` for each zero in the
+;; input collection. There's nothing wrong with that; it's a correct
+;; behaviour. But it's wasteful.
+
+;; Ideally we'd pass the buck: `invert` can emit as many messages as it pleases
+;; to either channel, but `harmonic-mean` wires both of those channels so that
+;; only one message is ever consumed from the cable. It would then be up to the
+;; runtime to see that nothing else can ever be read and stop the processing.
+
+(defn happy-path [xs]
+  (reduce (fn [[count sum] x] [(inc count) (+ sum x)]) [0 0] (map invert xs)))
+
+(defn harmonic-mean [xs]
+  (let [[channel val] (first (ground (happy-path xs)))]
+    (case channel
+      :zero 0
+      _     (/ (first val) (second val))
+      (emit :error "This cable should only have 2 channels"))))
+
+;; First observation: we're going to want a match construct.
+
+(defn harmonic-mean [xs]
+  (match (first (ground (happy-path xs)))
+    [:zero _]        0
+    ['_ [count sum]] (/ count sum)
+    x                (emit :error {:mesg "This cable should only have 2 channels"
+                                   :data x})))
+
+;; so now `harmonic-mean` commissions a cable from the `happy-path` function and
+;; grounds it out.
+
+;; `ground` simply interleaves all messages from all channels of a cable in
+;; received order. The messages on the grounded wire are pairs of [channel-name
+;; value]. Since a cable is produced by a single thread (language semantics!)
+;; this is well defined, but unknown statically.
+
+;; Since `harmonic-mean` only ever reads one message off of the ground wire, the
+;; runtime will know that `happy-path` should be aborted as soon as it emits its
+;; first message.
+
+;; If values were computed lazily, this would be solved. But pure laziness
+;; brings with it space time leaks that will destroy a system like this. This
+;; structure is quite similar to FRP.
+
+;; So there needs to be a tradeoff between laziness and eagerness which is
+;; handled dynamically by the runtime. Anything that doesn't leak can be
+;; lazy. That is if an input stream is fixed, then there won't be space leaks,
+;; only time (which is less of an issue). And if the system has idle cycles it
+;; can start processing things that aren't needed yet. But it must be able to
+;; know that a value will eventually be needed.
+
+;; But for event streams, laziness is not an option. Event streams need to be
+;; dealt with immediately otherwise responsivity will deteriorate. Most event
+;; streams should be heavily filtered as close to the source as possible. That
+;; allows a tight loop to just drop most events and route the rest. How the
+;; routed messages are dealt with will depend on latency and throughput
+;; requirements, as well as message volume.
+
+;; But even when processing eagerly, we're better off buffering and batch
+;; processing chunks for the sake of throughput.
+
+;; This is what I've been talking about when I say "hotspot like optimisations
+;; in userspace". Though I haven't yet made clear (to myself at least) how the
+;; programmer might interact with this as yet nebulous system.
