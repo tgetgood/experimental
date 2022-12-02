@@ -1,3 +1,100 @@
 ;; This language makes assumptions about what hardware is that are not entirely
 ;; compatible with standard ideas, so I think it's necessary at this point to
 ;; define the (virtual) machine that we're expecting to operate on.
+
+;; The core problem that needs to be solved by the runtime is the dichotomy
+;; between streams and values. What I'm currently calling "functions" return
+;; cables, which are bundles of wires. The stream of values that travel over a
+;; wire is itself a value that can be passed into a function, but the wire
+;; itself cannot be. This division between the communication topology level and
+;; the message processing level is intentional and must be enforced.
+
+;; But the fact is that what we mean when we say "function" is something quite
+;; different from the functions discussed above.
+
+;; A mathematical function is a map from A to B. For every element a ∈ A, (f a)
+;; returns a single b ∈ B. Strictly speaking A and B must be sets and f is thus
+;; a subset of A × B which is of a higher logical type than either A or B. That
+;; logical typing is important if we want to maintain well definèdness. A
+;; consequence of this that I've never heard mentioned is that passing some
+;; representation of a function to itself is not well defined since it violates
+;; type constraints. Similarly self referential (cyclic) data structures cannot
+;; be defined in a way that doesn't lead to Russellian paradox.
+
+;; The more I think about it, the more convinced I am that the halting problem
+;; is just a confusion of logical typing, but that's a topic for another
+;; day. And I'm probably wrong since Gödel's great innovation was to create a
+;; Russellian paradox without mixing logical types. I need to read Gödel's proof
+;; again.
+
+;; Anyway, back on topic.
+
+;; For simplicity, let's assume that there are no functions in the mathematical
+;; sense, only stream processors. These processors take a set of values
+;; (possibly streams), and feed messages onto wires in a cable.
+
+;; At the topology level, a processor takes a collection of streams (simple
+;; values could be degenerate streams) and returns a cable.
+
+;; Or perhaps: processors connect wires.
+
+;; The basic idea is that processors transform messages on wires and put those
+;; transforms on other wires.
+
+;; I need to separate concerns here.
+
+;; `eval`, that is the core interpreter converts sexps into a message passing
+;; topology.
+
+;; The runtime routes messages through that topology so long as there are
+;; messages to process.
+
+;; So what is the VM that powers the runtime?
+
+;; That's not the question that's getting to me at the moment. The important
+;; question is: what does it mean to say that `eval` and `lli` are the same kind
+;; of thing?
+
+;; After all, they're both interpreters. They're different interpreters, but
+;; they're forced to work together.
+
+;; The traditional view is language -> ast -> bit code -> machine code and then
+;; the machine code executes.
+
+;; That, in itself, is a bit of a lie since we have JIT which can produce
+;; executable code pages on the fly, and so some runtime process has to sit
+;; above the loop, produce those new pages, and then step into them.
+
+;; I'm trying to make it even more complicated (I think). After all when a
+;; primitive is reached, the message gets passed to something that was passed to
+;; `lli` which returns a value. Does it? Interpreters don't "return", they "do
+;; stuff". That's a horrid thing to try and reason around, isn't it?
+
+;; But that's the truth of the matter. You send a message to something called
+;; `http` and get back a stream. `http` needs to cause physical effects and then
+;; it eventually (maybe) puts messages on that stream you have.
+
+;; Even that is inaccurate: `http` doesn't "give you a stream". The topology is
+;; such that a wire goes from "here" to `http` and cable goes from `http` to
+;; some other part of the program. That's the "static" topology (which is
+;; dynamic, but hold on). That topology is determined by your source code, but
+;; the messages (runtime input) determine which paths are traversed and which
+;; are not.
+
+;; So any code that was written to deal with HTTP requests will have a
+;; subtopology involving an `http` interpreter (node). This interpreter recieves
+;; messages, interprets them according to its own internal logic, and emits
+;; messages on a certain cable whose wires are connected throughout the
+;; continuation of the program. No, whose wire *determine* the continuation of
+;; the program.
+
+;; In this instance, `http` is identical in structure and situation to `eval` or
+;; `lli`. Additionally it is defined in terms of these other interpreters.
+
+;; It is in this sense that everything I've been calling "functions" are
+;; interpreters.
+
+;; To progress in understanding, I see no alternative but to abandon the lisp
+;; notions of function and application. I still think of the language being
+;; defined as a lisp, but it isn't. Though being able to express parts of it as
+;; sexps has been invaluable to maintaining sanity.

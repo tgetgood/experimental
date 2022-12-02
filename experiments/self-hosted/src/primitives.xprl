@@ -25,7 +25,7 @@
   ;; to write.
   (let [dispatch {#{:i8} {:inst   :define
                           :name   add-i8-i8
-                          :type   :i8 ;; TODO: check for overflow and bump to :i16
+                          :type   :i8 ;;TODO: check for overflow and bump to :i16
                           :args   [{:type :i8 :arg x} {:type :i8 :arg y}]
                           :blocks [{:ret  G_1
                                     :inst :add
@@ -40,7 +40,8 @@
         ;; see at runtime.
         types (find-real-types [x y])]
     ;; Lots of hand waving, but the essential idea is that primitives are other
-    ;; interpreters. We can send them messages and receive messages back from them.
+    ;; interpreters. We can send them messages and receive messages back from
+    ;; them.
     ;;
     ;; In this case, `+` is an interpreter that expects pairs of ints. The code
     ;; in `dispatch`, defines the `+` interpreter, but in order to get the

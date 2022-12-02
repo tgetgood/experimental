@@ -1,0 +1,428 @@
+;; Let's try and walk through yet another example:
+
+(defn harmonic-mean [xs]
+  (match (first (ground (happy-path xs)))
+    [:zero _]             0
+    [default [0 _]]       0
+    [default [count sum]] (/ count sum)))
+
+(defn count-and-sum [[count sum] x]
+  [(inc count) (+ sum x)])
+
+(defn happy-path [xs]
+  (aggregate count-and-sum (map invert) [0 0] xs))
+
+(defn invert [x]
+  (if (zero? x)
+    (emit :zero true)
+    (/ 1 x)))
+
+(defn map [f]
+  (fn [[x & xs]]
+    (emit (recur xs) (f x))))
+
+(defn reduce [f]
+  (fn [init [x & xs]]
+    (let [next (f init x)]
+      ;; We need to check for empty before recurring because calling recur on an
+      ;; empty stream will result in nothing happening. End of stream => end of
+      ;; computation.
+      (if (empty? xs)
+        next
+        (recur next xs)))))
+
+;; Thinking about it, this is another match statement in disguise. I need to
+;; think of how to phrase it properly.
+
+(defn scan [f]
+  (fn [init [x & xs]]
+    (let [next (f init x)]
+      (emit (recur next xs) next))))
+
+(defn reduce [f]
+  (fn [init xs]
+    (last ((scan f) init xs))))
+
+;; But that's something of a waste.
+
+;; What I want is something akin to on-end-of-stream that doesn't rely on side
+;; effects like assignment or blocks of code. That's an issue for another day.
+
+;; The (if (empty? xs) ...) check shouldn't be necessary on each iteration.
+
+;; Concretise streams (or anything sequential).
+(defn aggregate
+  "This is essentially transduce with fewer bells and whistles."
+  [rf xform to from]
+  ((reduce rf) to (xform from)))
+
+;; In the above, `match`, `first`, `ground`, `/`, `+`, `zero?`, `if`, `let`,
+;; `emit`, `recur`, `fn`, `defn`, `last`, and literal data structure creation
+;; are all primitives. That's a lot of primitives for such a trivial example,
+;; but let's do some handwaving and attempt to evaluate:
+
+(harmonic-mean [1 2 3])
+
+;; By hand.
+
+;; 1)
+
+(harmonic-mean [1 2 3])
+
+;; evaluates to something like:
+
+(let [result-cable (happy-path [1 2 3])]
+  (match (first (ground result-cable))
+         ...))
+
+;; So the body of a match statement is a continuation for the computation in its
+;; initial clause.
+
+(happy-path [1 2 3])
+
+=>
+
+((reduce (fn [[c s] x] [(inc c) (+ x s)])) [0 0] (emit (recur [2 3]) (invert 1)))
+
+;; Notice that the emit statements don't make sense lexically under
+;; beta-reduction. Emission is something that lambda calculus cannot
+;; countenance.
+
+;; So scratch that and let's go again:
+
+(harmonic-mean [1 2 3])
+
+=>
+
+(->> [1 2 3]
+     happy-path
+     ground
+     first
+     match)
+
+=>
+
+(->> [1 2 3]
+     (aggregate count-and-sum [0 0])
+     ground
+     first
+     match)
+
+=>
+
+(->> [1 2 3]
+     ((map invert))
+     ((reduce count-and-sum) [0 0])
+     ground
+     first
+     match)
+
+;; Up to this point it looks like we're just evaluating standard clojure
+;; code. That's because we haven't yet hit an `emit` yet. Emission points are
+;; the first major divergence of xprl. Curiously `ground` and `match` come off
+;; as standard lispy constructs. `match` can proably be implemented as a macro,
+;; but I think ground has to have its claws in the runtime itself.
+
+=>
+
+(->> [1 2 3]
+     (fn [[x & xs]]
+       (let [next (if (zero? x)
+                    (emit :zero true)
+                    (/ 1 x))]
+         (emit (recur xs) next)))
+     ((fn [init [x & xs]]
+        (let [next (count-and-sum init x)]
+          (if (empty? xs)
+            next
+            (recur (first next) xs)))) [0 0])
+     ground
+     first
+     match)
+
+;; The `(first next)` bit in `recur` in `aggregate` is ugly, but technically
+;; necessary since we don't want to recur on two streams, but on a value and a
+;; stream.
+
+;; The `next` in `map` is an intermediate temporary that we need to create
+;; because if the `emit :zero` expression is evaluated, the lower `emit` will
+;; never be reached.
+
+;; But is that really necessary? Arguments to application are a dataflow fan
+;; in. If one of the args diverts control, then the downstream application will
+;; never get control (it needs all args to fan in). So this might be moot. It's
+;; confusing me pretty badly though...
+
+;; But we can convolute the fn inside map to get
+
+=>
+
+(->> [1 2 3]
+     (fn [[x & xs]]
+       (if (zero? x)
+         (emit (recur xs) :zero true)
+         (emit (recur xs) (/ 1 x))))
+     ((fn [init [x & xs]]
+        (let [next (count-and-sum init x)]
+          (if (empty? xs)
+            next
+            (recur (first next) xs)))) [0 0])
+     ground
+     first
+     match)
+
+;; I'm confident --- but uncertain --- that transforms like that can be
+;; formalised with some more theory.
+
+;; We're starting to see a pattern with sequence processing nodes ending in a
+;; branch-and-jump construct which chooses whiter to send control / continue.
+
+;; This is much easier to reason about since it's analogous to conditional
+;; branching.
+
+;; Note that `next` is a cable, so could simplify the above to
+
+(->> [1 2 3]
+     (fn [[x & xs]]
+       (emit (recur xs) (if (zero? x)
+                          (emit :zero true)
+                          (/ 1 x)) ))
+     ((fn [init [x & xs]]
+        (let [next (count-and-sum init x)]
+          (if (empty? xs)
+            next
+            (recur (first next) xs)))) [0 0])
+     ground
+     first
+     match)
+
+;; Where
+
+(emit (recur xs) (if (zero? x)
+                   (emit :zero true)
+                   (/ 1 x)) )
+
+;; says: do two things concurrently. Loop back and process the rest of the
+;; sequence, and pass control to the `if` expression.
+
+;; `if` will evaluate one of its branches which will emit a --- in this case
+;; exactly one --- message on one of two channels. (/ 1 x) sends on `default`
+;; which passes through as the "normal return" of `if`, which passes to an
+;; emission on `default` of the `map` expression, and so forth.
+
+;; Thus each non-zero `x` gets inverted and passes on the the reduction. Once
+;; the sequence is complete (`xs` is `empty?`) the aggregate gets emitted to
+;; ground -> first -> match. But if a message is emitted on `:zero`, it bubbles
+;; up through to `ground` immediately since the reduction only listens for
+;; normal returns. `ground` then passes it to `first` which drops the rest of
+;; the stream (since nothing retains the tail in this example) and the runtime
+;; is free to collect the remaining processes without evaluating anything
+;; further in the sequence.
+
+;; Manual early abort is likely more efficient in general if well used, but
+;; that's a big if, and the runtime is privy to much more info across a large
+;; program than the developer. Requiring the *ability* to early abort to be
+;; threaded through all code everywhere (like transducers) is too much for me to
+;; ask.
+
+;; -----
+
+;; This idea of all side effects (including control) coming from tail position
+;; in an `emit` expression simplifies the math dramatically. But I keep
+;; confusing myself, which is not a good sign if I want this to be usable.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Let's try that one more time from the top, but this time we use the
+;; environments that were developed for meta-evaluation:
+
+;; Starting from the bottom:
+
+(happy-path xs)
+
+=> ; skipped a few steps
+
+(->> xs
+     (fn [[x & xs]]
+       (emit (recur xs) (if (zero? x)
+                          (emit :zero true)
+                          (/ 1 x)) ))
+     ((fn [init [x & xs]]
+        (let [next (count-and-sum init x)]
+          (if (empty? xs)
+            next
+            (recur (first next) xs)))) [0 0]))
+
+;; Start with
+
+(eval env '(fn [[x & xs]]
+             (emit (recur xs) (invert x))))
+
+=>
+
+^Fn {:env env
+     :slots [[x & xs]]
+     :body (emit (recur xs) (invert x))}
+
+;; so
+
+(eval env '((map invert) xs))
+
+=>
+
+(apply env
+       ^Fn {:env   env
+            :slots [[x & xs]]
+            :body  (emit (recur xs) (invert x))}
+       [xs])
+
+=>
+
+(eval (extend env [[x & xs]] xs) (emit (recur xs) (invert x)))
+
+;; So if env were previously
+
+{:xs the-stream
+ :emit '???
+ ...}
+
+;; it becomes
+
+{:x (first the-stream)
+ :xs (rest the-stream)
+ ...} ; call it env2
+
+
+;; And the interpreter parks (if necessary) while waiting for the env to update,
+;; not for the function to evaluate... curious
+
+=> ; again skipping along
+
+(apply env2 emit [(recur xs) (invert x)]) ; call by expr, remember
+
+;; And here we must remember that `emit` is yet to be formally defined. Maybe
+;; this can provoke a formal definition.
+
+;; Let's Desugar the above for simplicity:
+
+(apply env2 emit [(recur xs) (pipe (invert x))]) ; (1)
+
+;; So emit takes a sequence of commands.
+
+(defn apply [env ^'emit _ args]
+  (let [e' (extend env
+             recur (fn [args]
+                     (qeval env `((:current-cable-entry ~env) ~@args)))
+             pipe  (fn [arg]
+                     (let [tail-cable (eval env arg)]
+                       (wire tail-cable (:the-cable env))))
+             on    (fn [ch & args]
+                     (let [msg-streams (map #(eval env %) args)]
+                       (wire {default ch} (interleave msg-streams) (:the-cable env)))))]
+    ((map #(eval e' %)) args)))
+
+;; Above qeval simply enqueues it's resulting form to be evaluated by a runtime.
+;;
+;; `wire` passes all messages from its first argument to its second argument,
+;; preserving channel names. Optionally the first arg can be a map to rename
+;; message channels from the first stream before forwarding them to the second.
+;;
+;; There's no guarantee about where (which core, or even which machine in a
+;; cluster) will do the evaluating. This is permitted because the form plus
+;; environment is a total description of the computation to be done. Some work
+;; will be needed in the details to make sure this operates consistently.
+
+;; Notably: the continuations that publish messages to streams are stored in the
+;; environment, so these must be safe across threads / the network. & the order
+;; of evaluation must be sufficiently constrained that the messages emitted to a
+;; given stream by a given node are sent in order. This means that the above
+;; `on` message must execute before anything published by the `recur` message is
+;; processed (but the `on` and `recur` themselves can go in parallel).
+;;
+;; Here lurk sharp corners. Both for safety and performance.
+
+(defn apply [env ^Fn f args]
+  (let [output-cable (Cable.)
+        e (if (:recur (meta args))
+            (extend (:env f)
+              (:slots f) (map #(eval env %) args))
+            (extend (:env f)
+              the-cable             output-cable
+              current-cable-entry   (fn [args]
+                                      (f (with-meta args {:recur true})))
+              (:slots f)            (map #(eval env %) args)))]
+    (eval e (:body f))))
+
+;; `output-cable` effectively takes on the role of the continuation in cps style
+;; lisps. But because the cable --- as its name implies --- is multiplexed, we
+;; have potentially many threads of continuation from any given point in a
+;; computation.
+
+;; The logical next step would be to formally define "cable passing
+;; transformation" analogously to Steele's CPS transformation of scheme.
+
+;; Let's start with just a standard cps transform, but the `c` is now a cable.
+
+;; Are cables objects?
+
+;; Do they have types?
+
+;; Can we define polymorphic methods on them?
+
+;; Can a user create a new subtype of cable and completely change the semantics
+;; of the language?
+
+;; That's all academic until we demonstrate this does what we need.
+
+(defn apply [env c ^Fn f args]
+  (let [cs ((map #(Cable.)) (range (count cs)))
+        _  ((map #(eval env %1 %2)) cs args)]
+    (eval (extend (:env f) (:slots f) ((map #(first (get % default))) cs))
+          (:body f))))
+
+;; Nope.
+
+;; defaults to literal data which evaluates to itself.
+(defn eval [env form]
+  ;;??(emit form)
+  form)
+
+;; Can / should we automatically convert values to streams containing themselves?
+
+(defn eval [env ^List [head & tail]]
+  (with-output-cable c ; wave hands
+    (apply env c head tail)))
+
+(defn apply [env c ^'fn _ [args body]]
+  (emit c (on default ^Fn {:slots args
+                           :env   env
+                           :body  body})))
+
+(defn apply [env c ^Fn f args]
+  (let [arg-cs (map #(eval env %) args)
+        e'     (extend (:env f)
+                 'recur (fn [& args]
+                          ;; This seems too simple to be correct...
+                          (apply env c f args))
+                 ;; Arguments only apply if they "return normally"
+                 ;; And they only apply their first return value
+                 (:slots f) (map (comp first #(get % default)) arg-cs))]
+    (eval e' (:body f))))
+
+(defn apply [env c ^'emit args]
+  (map #(qeval env c %) args))
+
+;; `qeval` in this context is a bit of a miracle method. It must be
+;; non-blocking, and it must implement a sufficiently smart priority queue to
+;; guarantee order of delivery over calls to `recur`. It might be sufficient to
+;; just evaluate the `recur` last, but that could lead to starvation.
+
+(defn apply [env c ^'on _ [ch & msgs]]
+  (put! c ch msgs))
+
+;; pipe isn't necessary because `emit` is always in tail position, so the cable
+;; is the caller's cable.
+
+;; Recap: `apply` needs a reference to the current cable. `eval` might or might
+;; not, I'm not sure. It might be better to think of calls to `eval` as the
+;; origin of new cables and every evaluation creates one.

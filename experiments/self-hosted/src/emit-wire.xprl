@@ -42,10 +42,9 @@
 ;; We can do it in one pass as:
 
 (defn invert [x]
-  (fn [[x & xs]]
-    (if (zero? x)
-      (emit :zero true)
-      (/ 1 x))))
+  (if (zero? x)
+    (emit :zero true)
+    (/ 1 x)))
 
 (defn harmonic-mean [xs]
   (wire [:zero (fn [_] (emit ^:close 0))
