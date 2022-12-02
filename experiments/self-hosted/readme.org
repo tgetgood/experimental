@@ -9,7 +9,7 @@ thought out to do something useful.
 Bootstrapping is going to be fun.
 
 * Reading List
-   - [ ] Lambda the Ultimate Declarative — Steele 1976
+   - [X] Lambda the Ultimate Declarative — Steele 1976
      | It is not the names which are important to the computation, but rather    |
      | the quantities; hence it is appropriate to focus on the quantities and    |
      | think of them as having one or more names over time, rather than thinking |
@@ -46,7 +46,7 @@ Bootstrapping is going to be fun.
 
      I truly feel like I'm making progress, but this is certainly taking me in
      a spiral.
-   - [ ] Lambda: The Ultimate Imperative
+   - [X] Lambda: The Ultimate Imperative
    - [ ] Actors: A Model of Concurrent Computation in Distributed Systems
    - [X] Intensions and Extensions in a Reflective Tower, Danvy & Malmkjær 1988
    - [X] The Mystery of the Tower Revealed, Wand & Friedman 1988

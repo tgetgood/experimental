@@ -1,0 +1,176 @@
+;; This is another pass at rewriting with multiplexed continuations.
+
+;; The "harmonic mean" part is just the motivating example.
+
+;; We want a program that looks something like
+
+(defn invert [x]
+  (if (zero? x)
+    (emit :zero true)
+    (/ 1 x)))
+
+(defn count-and-sum [[count sum] x]
+  [(inc count) (+ sum x)])
+
+(defn happy-path [xs]
+  (aggregate count-and-sum (map invert) [0 0] xs))
+
+(defn harmonic-mean [xs]
+  (match (first (ground (happy-path xs)))
+    [:zero _]             0
+    [default [0 _]]       0
+    [default [count sum]] (/ count sum)))
+
+;; where
+
+(defn aggregate [rf xform to from]
+  (reduce rf to (xform from)))
+;; i.e.: a simplified `transduce`
+
+;; more or less.
+
+;; The exciting part is where we have to deal with multiple return paths from a
+;; deeply nested function, `invert`.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Starting from the beginning
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn eval [env form]
+  (with-output c
+    (apply env c emit [form])))
+
+;; That's already a loosing game.
+
+;; `eval` isn't that interesting, it's just a router; the real magic of a
+;; lexical lisp is application.
+
+(ns harmonic-mean-demo)
+
+(defn eval [env form]
+  (emit (on default form)))
+
+(defn eval [env ^Collection coll]
+  (emit (on default (into (empty coll) (map (partial eval env) coll)))))
+;; N.B.: `into` returns a complete collection, not a stream.
+
+(defn eval [env ^List [head & tail]]
+  (with-cable c
+    (apply env c head tail)))
+
+;; Note the departure from pass by value metacirculairy. `eval` doesn't evaluate
+;; anything. Maybe I ought to rename it.
+
+;; The `with-cable` macro is essentially `call/cc` but I don't think it should
+;; be used outside of the interpreter core. It needs to be available to override
+;; and extend the interpreter, so we just depend on tyranny posing as style, I
+;; suppose...
+
+;; N.B.: `with-cable` runs `apply` for side effects!. That's a little messed
+;; up. There need to be side effects somewhere. I want to push them to the edges
+;; of the system, but the very act of applying arguments to a function
+;; *requires* side effects. Returning a value *is* a side effect. It's just
+;; calling a continuation.
+
+;;;;; Apply is the real item of interest.
+
+(defn apply [env c ^'fn _ [arg body]]
+  (put! c [default ^Fn {:slots args
+                        :body  body
+                        :env   env}]))
+
+;; `default` is just a gensym. A name for the otherwise unnamed "normal return"
+;; path.
+
+;; So here we're interacting with the cable `c` directly. I'm loosing separation
+;; between the interpreter and the thing being interpreted. That's not
+;; good. Well not for implementation, but maybe for eventual bootstrapping.
+
+;; `put!` is primitive. That is, it's external to the interpreter we're
+;; writing. Just like `with-cable`. The entire implementation of cables can be
+;; expressed in the language. They're just queues at the end of the day.
+
+;; But here's where my intuitions fail me. I want an audit trail all the way
+;; down. But we *need* to bootstrap in stages or else this whole thing is
+;; circular. Can we have staged bootstrapping without the danger of Thompson
+;; quines? If a code base is small and clear enough, we can audit it. So maybe
+;; we just need a verifiable core...
+
+(defn apply [env c ^Fn f args]
+  (let [arg-cs (map #(eval env %) args)
+        e'     (extend (:env f)
+                 (:slots f) (map (comp first #(get % default)) arg-cs)
+                 'recur     (fn [& args]
+                              (apply env c f args)))]
+    (eval e' (:body f))))
+
+;; The kludge of inserting `recur` into the env in which a function body is
+;; evaluated might be too simplistic, but we'll see.
+
+(defn apply [env c ^'emit _ args]
+  (map #(qeval env %) args))
+
+;; `qeval` is a primitive. In the meta-language, we have something like
+
+;;;;; Aside on the meta language
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Thread local work (priority) queue.
+(defmeta *eval-queue*
+  (SomeSortOfHeap.))
+
+;; For real world performance, this will have to be some sort of real time,
+;; unsorted, batch processing queue. We'll come back to that eventually.
+
+(defmeta-fn enqueue [sexp]
+  (swap! *eval-queue* conj sexp))
+
+(defmeta-fn qeval [env form]
+  (enqueue (list 'eval env form)))
+
+;; And the runtime is a threadpool with work stealing between eval queues. We
+;; don't want work stealing to result in a stream computation moving between
+;; cores needlessly.
+
+(defmeta-fn top-level-runtime-thread []
+  (if (empty? @*eval-queue*)
+    (steal-work! *eval-queue*)
+    (let [task (pop! *eval-queue)]
+      ;; meta-level eval, so (meta-eval (eval env form)) based on `qeval` call
+      ;; above.
+      (eval task))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; End aside. That was disturbingly concise...
+
+;; That's no good. Everything passed to `emit` must be passed into the cable
+;; with which emit is applied. `emit` & `qeval` as defined above will just
+;; enqueue work which dumps its results into the void. The only way we're going
+;; to get free parallelism is if work can be packaged up and shipped off to any
+;; available compute without losing the messages it emits, nor mixing up chunks
+;; of messages from out of order evaluation.
+
+;; One way to ensure that is to declare as a design constraint that all
+;; processes which ultimately write to the same cable must be executed with
+;; single threaded context. We'll need a construct to to declare when streams of
+;; computation do not depend on each other. `wire` is the current candidate for
+;; that role.
+
+;; ideally avoid boxing like this
+(defn on [ch & msgs]
+  (map (fn [m] [ch m]) msgs))
+
+;; parallelism is an optimisation. Immutability gives us a lot of concurrency
+;; for free
+(defn apply [env c ^'emit _ msgs]
+  (let [msgs (ensure-recur-last msgs)]
+    (wire c (merge (map #(eval env %) msgs)))))
+
+;; `merge` returns a cable that emits all values emitted by the cables in its
+;; input stream in the order they happen to arrive at `merge`.
+
+;; Note that `merge` only receives messages on cables emitted on the default
+;; channel of its argument. That could be wrong.
+
+
+;; `wire` simply copies all messages from one cable to another.
