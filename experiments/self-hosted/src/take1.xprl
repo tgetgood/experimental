@@ -1,0 +1,96 @@
+;; I'm just going to start numbering these since the names have lost all meaning
+
+(defn map [f]
+  (fn [coll]
+    (map f coll)))
+
+(defn map [f ^Sequential [x & xs]]
+  (recur (emit (f x)) xs))
+
+;; Does (emit stream) emit the stream qua stream or does it just connect the
+;; stream thereby effectively emitting its values?
+;;
+;; I've been trying to systematically enforce the latter, so `explode`
+;; *shouldn't* be necessary.
+(defmacro explode [f & args]
+  `(~f ~@(butlast args) ~@(last args)))
+
+;; Just an idea. Minimise message passing overhead via chunking.
+;; We'd want something akin to transients as well in real life.
+;;
+;; REVIEW: This is an example of moving what I've been thinking of as runtime
+;; optimisations into the standard library. My internal categories are
+;; sloppy. This is almost certainly the way to approach it, but I wonder if we
+;; can get something similar automatically?
+(defn map [f ^VectorLeaf xs]
+  (let [vals (primitive-map-iter f (:elements xs))]
+    (emit vals)))
+
+(defn map [f ^VectorNode xs]
+  (let [chunks (primitive-map-parallel f (:elements xs))]
+    (emit (cat chunks))))
+
+;;; And so on...
+
+(defn reduce [rf]
+  (fn [init coll]
+    (reduce rf init coll)))
+
+(defn reduce [rf coll]
+  (reduce rf (identity rf) coll))
+
+(defn reduce [rf init ^Sequential coll]
+  (if (empty? coll)
+    init
+    (recur (rf init (first coll)) (rest coll))))
+
+(defn reduce [^associative? rf init ^Vector coll]
+  (reduce rf init (primitive-map-parallel
+                   #(reduce rf (identity rf) %) (:elements coll))))
+
+(defn reduce [^{associative? true commutative? true} rf init ^Vector coll]
+  ;; We can take even more liberties with commutative reducing functions
+ )
+
+;; Polymorphism over predicates like this will yield many optimisations that are
+;; not possible without algebraic insight into the computation being
+;; performed. Giving this info to the compiler (runtime) is beyond the ability
+;; of any language I've used, though I'd be surprised if no one had accomplished
+;; it before.
+
+;; Producing efficient code in the face of annotations like this might well be a
+;; new hard problem...
+
+(defn invert [x]
+  (if (zero? x)
+    (emit (on :zero true))
+    (/ 1 x)))
+
+(defn happy-path [xs]
+  (reduce count-sum [0 0] (map invert xs)))
+
+(happy-path stream)
+
+=>
+
+(fn [init stream]
+  (let [stream (map invert stream)]
+    (if (empty? stream)
+      init
+      (recur (count-sum init (first stream)) (rest stream)))))
+
+=>
+
+(fn [init stream]
+  (if (empty? stream) ; `(map stream)` ends iff `stream` ends
+    init
+    (recur (count-sum init (invert (first stream))) (map invert (rest stream)))))
+
+;; This isn't the fusion we're looking for. It's not a good way to express it
+;; because it will not work for filter, or any other transform that isn't 1-1.
+
+;; We have two conflicting messages in transforms. `emit` says "take these
+;; values and move on to the next step in the computation", whereas `recur` says
+;; "loop back and do that again with new arguments". As long as they always
+;; happen in that order, we won't have problems, but we will get a lot of
+;; inefficiencies from boxing and whatnot.
