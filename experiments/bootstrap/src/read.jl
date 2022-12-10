@@ -82,13 +82,13 @@ function splitsymbolic(x::String)
 end
 
 function readkeyword(x)
-    p = splitsymbolic(x[2:end])
-    keyword(p[1], p[2])
+    ns, name = splitsymbolic(x[2:end])
+    keyword(ns, name)
 end
 
 function readsymbol(x)
-    p = splitsymbolic(x)
-    symbol(p[1], p[2])
+    ns, name = splitsymbolic(x)
+    symbol(ns, name)
 end
 
 function interpret(x::String)
