@@ -7,9 +7,10 @@ hashbits = 5
 nodelength = 2^hashbits
 nil = nothing
 
-include("./values.jl")
+include("./sexps.jl")
 include("./sequential.jl")
 include("./vector.jl")
+include("./list.jl")
 include("./map.jl")
 include("./queue.jl")
 
@@ -17,7 +18,11 @@ include("./queue.jl")
 export first, rest, take, drop, reduce, transduce, into, map, filter, interpose, dup
 
 # Vectors
-export  emptyvector, nth, vec
+export  emptyvector, nth, vec, vector
+
+# Lists
+
+export list, tolist
 
 # Maps
 export emptymap, assoc, dissoc, containsp, hashmap, merge, keys, vals
@@ -26,9 +31,9 @@ export emptymap, assoc, dissoc, containsp, hashmap, merge, keys, vals
 export Queue, queue, emptyqueue
 
 # Generic
-export conj, get, count, empty, emptyp, nil, keyword, name
+export conj, get, count, empty, emptyp, nil, keyword, name, symbol, withmeta, meta
 
 # Types
-export Keyword, Symbol, Map, Vector, MapEntry
+export Keyword, Symbol, Map, Vector, MapEntry, List
 
 end

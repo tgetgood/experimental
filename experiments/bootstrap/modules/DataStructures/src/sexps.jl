@@ -9,6 +9,14 @@ function withmeta(f, m)
     MetaExpr(m, f)
 end
 
+function meta(x)
+    nothing
+end
+
+function meta(x::MetaExpr)
+    x.metadata
+end
+
 struct String <: Sexp
     val::AbstractString
 end
@@ -29,6 +37,14 @@ end
 struct Symbol <: Sexp
     namespace
     name
+end
+
+function symbol(name)
+    Symbol(nil, name)
+end
+
+function symbol(namespace, name)
+    Symbol(namespace, name)
 end
 
 function string(x::Symbol)

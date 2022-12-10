@@ -178,8 +178,16 @@ function reduce(f, init::Vector, coll::VectorNode)
     )
 end
 
-function vec(args...)
+function vector(args...)
     Base.reduce(conj, args, init=emptyvector)
+end
+
+function vec(args)
+    Base.reduce(conj, args, init=emptyvector)
+end
+
+function vec(v::Vector)
+    v
 end
 
 function string(v::Vector)

@@ -1,0 +1,8 @@
+(def defn (macro [name args body]
+                 (list def name (list (quote fn) args body))))
+
+(defn adder
+  [a b]
+  (+ a b 1))
+
+(adder 4 5)

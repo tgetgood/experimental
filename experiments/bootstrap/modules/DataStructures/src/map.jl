@@ -76,19 +76,25 @@ function conj(v::Map, e::MapEntry)
     assoc(v, e.key, e.value)
 end
 
-# Copied from Clojure source without any analysis (clojure stores keys and
-# values in alternation as opposed to map entries)
+# Clojure uses 8, but I'm just delaying finishing the hashmap impl.
 # TODO: Analysis
-arraymapsizethreashold = 8
+arraymapsizethreashold = 128
+
+function get(m::Nothing, k)
+    nil
+end
 
 function get(m::PersistentArrayMap, k)
     for e in m.kvs.elements
         if e.key == k
             return e.value
-        else
-            return nothing
         end
     end
+    return nothing
+end
+
+function assoc(x::Nothing, k, v)
+    assoc(emptymap, k, v)
 end
 
 function assoc(m::PersistentArrayMap, k, v)
@@ -220,9 +226,9 @@ function string(m::Map)
 end
 
 function keys(m::Map)
-    into(vec(), map(x -> x.key), m)
+    into(emptyvector, map(x -> x.key), m)
 end
 
 function vals(m::Map)
-    into(vec(), map(x -> x.value), m)
+    into(emptyvector, map(x -> x.value), m)
 end

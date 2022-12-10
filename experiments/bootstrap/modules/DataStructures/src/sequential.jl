@@ -111,27 +111,19 @@ end
 
 function interpose(delim)
     function(emit)
-        lag = nothing
+        started = false
         function inner()
             emit()
         end
         function inner(res)
-            if lag !== nothing
-                t = lag
-                lag = nothing
-                emit(res, t)
-            else
-                emit(res)
-            end
+            emit(res)
         end
         function inner(res, next)
-            if lag === nothing
-                lag = next
-                return emit(res)
+            if started
+                return emit(emit(res, delim), next)
             else
-                t = lag
-                lag = next
-                return emit(emit(res, t), delim)
+                started = true
+                return emit(res, next)
             end
         end
         return inner

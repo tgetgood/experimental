@@ -1,0 +1,85 @@
+Okay, enough dilly-dallying. I think I've run through enough examples that I
+know what I want the language to do.
+
+#+TITLE: An Attempt to Implement
+
+* The Language
+** No Side Effects
+   This isn't true of the program as a whole, obviously, but it is true of
+   virtually all code that isn't part of the runtime itself.
+
+   No assignment, no code blocks (`progn`, `do`, etc.), no syscalls or other
+   standard forms of IO.
+
+   Streams of messages are the basic structure. A stream is a value, effectively
+   a persistent queue, but we may or may not know what the values in it are
+   yet. Attempts to read past the threshold of present knowledge will lead to
+   CSP style parking (coroutines).
+
+   A function takes arguments — possibly including streams — and returns what
+   I'm calling a cable. A cable is a bundle of named streams with a special,
+   unnamed cable which corresponds the the "normal return" path of a function.
+
+   The building block of all synchronisation is that messages emitted on a
+   function's output streams come into existence at a point in time which is
+   strictly later than the messages consumed by the function (either messages
+   passed in as arguments, or values read off of streams that were passed
+   in). That's it: consistency exists at a single point in time and space and
+   nowhere else. Everything bigger requires some method of consensus.
+
+   A function can emit zero or more messages on any number of streams, but only
+   from tail position. Thus functions effectively "return" a map from streams to
+   lists of messages, and the runtime hooks those messages up to the appropriate
+   queues based on the message passing topology which is the program code.
+
+   Additionally a function may call itself recursively and emit messages at the
+   same time. The semantics of such a (recur (emit ... expression are that
+   messages are emitted between iterations of a function. Strictly after one
+   call (tail position only remember) and strictly before the next invocation.
+
+   I think of these "recur and emit" tail calls as a shorthand for emitting to
+   streams that loop back into the emitting function. Such cycles from a node to
+   itself have proven difficult to model except via recursion.
+
+   To deal with IO, there must be streams that connect to the outside
+   world. Such streams include stdin, stdout, etc. as well as a function
+   http/request which takes an argument and returns a cable whose default stream
+   might emit a response, or whose error stream might emit an error. And so on.
+
+   There is no =put!= in the core language, so how does one write to stdout? The
+   answer is =wire= (name provisional) which connects one stream to another such
+   that in (wire a b) all messages emitted to `a` will be emitted to `b`. `b`
+   might contain other messages as well and the order of interleaving is the
+   order of receipt. If you want more coordination, you must write a stream
+   processor which takes in multiple streams and decides the order of
+   emission. The end programmer has the power to do this.
+
+   But what about IO that I'm not aware of? New hardware drivers, for instance?
+
+   The language must have an escape valve on the pattern of rust's =unsafe=
+   which allows new effects to be created but isolates them from the rest of the
+   program and calls attention to their dangerous character.
+** Stream processing
+   Iteration is not the correct primitive to talk about stream processing.
+
+   Iteration assumes that the stream will be consumed in uniform chunks, which
+   is an assumption about arrays, stride, and padding. Properties of the
+   collection being iterated over, instead of the data being processed.
+
+   My canonical example is a tokeniser or lisp reader. The number of characters
+   consumed per "step" is a function of the data on the stream and the semantics
+   of the language being processed. The fact that it's a stream of utf-8
+   characters is entirely orthogonal.
+
+   A more complex example is a repl where the meanings (and thus processing) of
+   chunks read off the stream depends on an environment which is built from
+   reading and evaluating the stream up until now.
+
+   The (recur (emit ...) ...) construct from the xprl examples provides a lower
+   level primitive from which we can build both structural processing (standard
+   map/filter/fold style iteration) as well as more complex forms of stream
+   processing that derive and modify their context from the contents of the
+   messages being read, rather than their encoding.
+
+   Of course, this is somewhat moot if you can manipulate a local state to keep
+   track of context, but I'm trying to avoid side effects.
