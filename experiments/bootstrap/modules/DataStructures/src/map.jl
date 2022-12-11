@@ -85,8 +85,8 @@ function get(m::Nothing, k)
 end
 
 function get(m::PersistentArrayMap, k)
-    for e in m.kvs.elements
-        if e.key == k
+    for e in m.kvs
+        if e != nil && e.key == k
             return e.value
         end
     end
@@ -103,8 +103,8 @@ function assoc(m::PersistentArrayMap, k, v)
     end
     n = emptyvector
     found = false
-    for e in m.kvs.elements
-        if e.key == k
+    for e in m.kvs
+        if e != nil && e.key == k
             n = conj(n, MapEntry(k, v))
             found = true
         else
@@ -121,8 +121,8 @@ end
 
 function dissoc(m::PersistentArrayMap, k)
     out = emptymap
-    for e in m.kvs.elements
-        if e.key != k
+    for e in m.kvs
+        if e != nil && e.key != k
             out = conj(out, e)
         end
     end
@@ -160,7 +160,7 @@ function get(m::PersistentHashMap, k)
     nodewalk(m, k, hashseq(k))
 end
 
-function containsp(m::PersistentHashMap, k)
+function containsp(m::Map, k)
     get(m, k) !== nothing
 end
 

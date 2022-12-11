@@ -123,7 +123,14 @@ initenv = hashmap(
         symbol(">"), PrimitiveFn(>),
         symbol("<"), PrimitiveFn(<),
         symbol("list"), PrimitiveFn(list),
-        symbol("get"), PrimitiveFn(get)
+        symbol("get"), PrimitiveFn(get),
+        symbol("contains?"), PrimitiveFn(containsp),
+        symbol("empty?"), PrimitiveFn(emptyp),
+        symbol("first"), PrimitiveFn(first),
+        symbol("take"), PrimitiveFn(take),
+        symbol("rest"), PrimitiveFn(rest),
+        symbol("assoc"), PrimitiveFn(assoc)
+
     ),
     meta, hashmap()
 )
