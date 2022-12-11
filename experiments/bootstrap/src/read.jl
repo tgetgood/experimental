@@ -102,7 +102,13 @@ function interpret(x::String)
 
     # TODO: Read in floats as rationals.
 
-    return readsymbol(x)
+    if x == "true"
+        return true
+    elseif x == "false"
+        return false
+    else
+        return readsymbol(x)
+    end
 end
 
 function readsubforms(stream, until)
