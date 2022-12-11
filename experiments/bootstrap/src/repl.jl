@@ -25,7 +25,7 @@ function message(e)
 
     push!(traces, trace)
 
-    @warn "Error in process: " * Base.string(e) *
+    @error "Error in process: " * Base.string(e) *
         "\n" *
         Base.reduce(*, Base.map(x -> string(x) * "\n", trace))
 end
@@ -38,9 +38,9 @@ function readloopuntilend(env, stream)
         end
     catch e
         message(e)
-        return nothing
     end
 
+    return env
 end
 
 function readfile(env, filename)
@@ -55,4 +55,4 @@ end
 
 # Test it out
 
-readfile(initenv, "../xprl/core.xprl")
+env = readfile(initenv, "../xprl/core.xprl")

@@ -38,3 +38,15 @@ end
 function string(x::List)
     "(" * transduce(interpose(" ") ∘ map(string), *, "", x) * ")"
 end
+
+function iterate(v::List)
+    first(v), rest(v)
+end
+
+function iterate(v::List, state)
+    if count(state) == 0
+        nothing
+    else
+        first(state), rest(state)
+    end
+end

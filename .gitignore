@@ -13,3 +13,5 @@ conf.edn
 vk.xml
 *.bc
 test.ll
+
+advent-*.xprl

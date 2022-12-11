@@ -193,3 +193,15 @@ end
 function string(v::Vector)
     "[" * transduce(interpose(" ") ∘ map(string), *, "", v) * "]"
 end
+
+function iterate(v::Vector)
+    first(v), rest(v)
+end
+
+function iterate(v::Vector, state)
+    if count(state) == 0
+        nothing
+    else
+        first(state), rest(state)
+    end
+end

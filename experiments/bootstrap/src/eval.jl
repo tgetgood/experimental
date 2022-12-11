@@ -76,8 +76,12 @@ function xprldef(env, args)
     return ModEnv(env, sym)
 end
 
-function xprldefn
-
+function xprlif(env, args)
+    if eval(env, first(args)) == true
+        eval(env, first(rest(args)))
+    else
+        eval(env, first(rest(rest(args))))
+    end
 end
 
 ##### Environment manipulation
@@ -109,10 +113,17 @@ initenv = hashmap(
     syms, hashmap(
         symbol("def"), PrimitiveMacro(xprldef),
         symbol("fn"), PrimitiveMacro(xprlfn),
-        symbol("+"), PrimitiveFn(args -> reduce(+, 0, args)),
-        symbol("list"), PrimitiveFn(tolist),
         symbol("quote"), PrimitiveMacro((env, x) -> first(x)),
-        symbol("macro"), PrimitiveMacro(xprlmacro)
+        symbol("macro"), PrimitiveMacro(xprlmacro),
+        symbol("if"), PrimitiveMacro(xprlif),
+        symbol("+"), PrimitiveFn(+),
+        symbol("-"), PrimitiveFn(-),
+        symbol("*"), PrimitiveFn(*),
+        symbol("="), PrimitiveFn(==),
+        symbol(">"), PrimitiveFn(>),
+        symbol("<"), PrimitiveFn(<),
+        symbol("list"), PrimitiveFn(list),
+        symbol("get"), PrimitiveFn(get)
     ),
     meta, hashmap()
 )
@@ -153,7 +164,7 @@ function apply(env, m::PrimitiveMacro, args)
 end
 
 function apply(env, f::PrimitiveFn, args)
-    f.jlfn(into(emptyvector, map(x -> eval(env, x)), args))
+    f.jlfn(into(emptyvector, map(x -> eval(env, x)), args)...)
 end
 
 function apply(env, form::List, args)
