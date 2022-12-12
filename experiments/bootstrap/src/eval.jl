@@ -130,7 +130,6 @@ initenv = hashmap(
         symbol("take"), PrimitiveFn(take),
         symbol("rest"), PrimitiveFn(rest),
         symbol("assoc"), PrimitiveFn(assoc)
-
     ),
     meta, hashmap()
 )

@@ -76,9 +76,13 @@ function conj(v::Map, e::MapEntry)
     assoc(v, e.key, e.value)
 end
 
+function conj(v::Map, e::Nothing)
+    v
+end
+
 # Clojure uses 8, but I'm just delaying finishing the hashmap impl.
 # TODO: Analysis
-arraymapsizethreashold = 128
+arraymapsizethreashold = 8
 
 function get(m::Nothing, k)
     nil
@@ -180,8 +184,15 @@ end
 
 function nodewalkupdate(m::MapEntry, entry, hs, level)
     mh = drop(level - 1, hashseq(m.key))
-    if first(mh) == first(hs)
-        boom
+    if m.key == entry.key
+        return entry
+    elseif first(mh) == first(hs)
+        child = nodewalkupdate(emptyhashnode, m, hashseq(m.key), level + 1)
+        child = nodewalkupdate(child, entry, hs, level + 1)
+
+        parent = assoc(emptyhashnode.ht, first(mh) + 1, child)
+
+        return PersistentHashMap(parent, 2)
     else
         ht = emptyhashnode.ht
         ht = assoc(ht, first(mh) + 1, m)
