@@ -31,16 +31,17 @@ function message(e)
 end
 
 function readloopuntilend(env, stream)
-    try
-        while true
+    while true
+        try
             env, val = step(env, stream)
             println(string(val))
+        catch e
+            message(e)
+            if typeof(e) == EOFError
+                return env
+            end
         end
-    catch e
-        message(e)
     end
-
-    return env
 end
 
 function readfile(env, filename)
@@ -56,3 +57,7 @@ end
 # Test it out
 
 env = readfile(initenv, "../xprl/core.xprl")
+
+println("")
+
+#e2 = readfile(env, "../xprl/advent-2020-1.xprl")

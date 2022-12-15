@@ -67,7 +67,7 @@ function xprldef(env, args)
         form = first(args)
     end
 
-    env = assoc(env, syms, assoc(get(env, syms), sym, form))
+    env = assoc(env, syms, assoc(get(env, syms), sym, eval(env, form)))
     if doc !== nothing
         env = assoc(env, meta, assoc(get(env, meta), sym,
                                      assoc(emptymap, keyword("doc"), doc)))
