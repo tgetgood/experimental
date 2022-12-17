@@ -8,8 +8,36 @@
   {:a/simple 42
    :map      (fn [x] (+ 1 x))})
 
+(def Y
+  (fn [f]
+    ((fn [x]
+       (f (fn [y]
+            ((x x) y))))
+     (fn [x]
+       (f (fn [y]
+            ((x x) y)))))))
+
+(def Yfact
+  (Y (fn [fact]
+       (fn [n]
+         (if (< n 2)
+           1
+           (* n (fact (- n 1))))))))
+
+(Yfact 5)
+
+(def second
+  (fn [coll]
+    (first (rest coll))))
+
+(def let (macro [bindings body]
+                (list (list (quote fn) (map first (partition 2 bindings)) body)
+                      (map second (partition 2 bindings)))))
+
 (def defn (macro [name args body]
-                 (list def name (list (quote fn) args body))))
+                 (list def name
+                       (let [name (list (quote fn) args body)]
+                         name))))
 
 (defn adder
   [a b]
@@ -34,3 +62,36 @@
 
 (fib 1)
 (fib 9)
+
+(defn g [x]
+  (+ 1 x))
+
+(defn f [x]
+  (g x))
+
+(defn g [x]
+  (+ x 2))
+
+(f 3)
+
+(defn h [x]
+  (g x))
+
+(g 3)
+
+(defn harmonic-mean [xs]
+  (match (first (happy-path xs))
+    [:zero _]         0
+    [default [0 _]]   0
+    [default [n sum]] (/ n sum)))
+
+(defn invert [x]
+  (if (= 0 x)
+    (emit :zero true)
+    (/ 1 x)))
+
+(defn count-and-sum [acc x]
+  [(+ 1 (first acc)) (+ x (first (rest acc)))])
+
+(defn happy-path [xs]
+  (reduce count-and-sum [0 0] (map invert xs)))

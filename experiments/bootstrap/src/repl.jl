@@ -52,6 +52,7 @@ end
 
 function repl(env)
     readloopuntilend(env, Base.stdin)
+    nothing
 end
 
 # Test it out

@@ -8,6 +8,26 @@ know what I want the language to do.
 
   Running =repl(initenv)= will get you a *very* bare repl that will read
   commands until EOF (ctrl-d).
+
+* Todo
+  In no particular order
+  - [ ] read strings
+  - [ ] sets
+  - [ ] check symbol definition at read time
+    This is to push errors back to read time from run time.
+
+    They're the same right now, but that won't always be the case.
+  - [ ] streams
+    We have queues, we just need to define cable construction, `wire, and
+    `emit`.
+  - [ ] match
+    Unification based pattern matching for messages on cables.
+  - [ ] Simple test runner
+  - [ ] debug utils
+    metacircular debugger, execution traces, anything that will help with the
+    pain of debugging as is.
+  - [ ] binary manipulation
+  - [ ] try to generate IR
 * The Language
 ** No Side Effects
    This isn't true of the program as a whole, obviously, but it is true of
@@ -92,3 +112,47 @@ know what I want the language to do.
 
    Of course, this is somewhat moot if you can manipulate a local state to keep
    track of context, but I'm trying to avoid side effects.
+
+** Dynamic Linking to Statically Determined Referrents
+   I've gone over this in the abstract in the repo's top level readme, this is a
+   snapshot of how I'm approaching it in this implementation.
+
+   The principle taken here is that the code that gets invoked at runtime must
+   be the code the programmer planned to invoke at development time. Thus
+   whether a function is shipped in a binary or found in a system library is
+   irrelevant. Just so long as it's the correct function.
+
+   In the following functions carry their lexical environments around with
+   them. A function is not an opaque compiled proceedure, object, etc. but a
+   datastructure containing a body, arguments, and an environment in which that
+   body is to be interpreted once the arguments are known.
+
+   In code:
+
+   #+BEGIN_SRC
+   (defn apply [env ^Fn f args]
+     (eval (extend (:env f) (:slots f) (map (eval env) args)) (:body f)))
+   #+END_SRC
+
+   That is, a function is just a snippet of code and an environment (with "holes"
+   in it) in which to run that snippet.
+
+   Application of a function to arguments fills those "holes" and evaluates the
+   body. That's it.
+
+   The implications are rather more complex. Firstly, when a form defining a
+   function is evaluated, the environment in which is it evaluated is captured
+   and stored as part of the "function" datastructure as follows:
+
+   #+BEGIN_SRC
+   (eval env '(fn args body))
+
+   => #Fn{:env env :slots args :body body}
+   #+END_SRC
+
+   This makes cyclic reference in the environment impossible, which means we
+   need combinators or trampolines for recursion. That's certainly annoying, but
+   a solved problem.
+
+   This is very static, and semantically it is, which is the point. The dynamism
+   is a topic for another day.

@@ -1,5 +1,5 @@
 using DataStructures
-using DataStructures: Symbol, Vector, Map, List, first, get, map, count, reduce
+using DataStructures: Symbol, Vector, Map, List, first, rest, get, map, count, reduce,  conj, keys, vec, filter, partition
 import DataStructures: string
 
 syms = keyword("symbols")
@@ -127,9 +127,17 @@ initenv = hashmap(
         symbol("contains?"), PrimitiveFn(containsp),
         symbol("empty?"), PrimitiveFn(emptyp),
         symbol("first"), PrimitiveFn(first),
+        symbol("into"), PrimitiveFn(into),
+        symbol("map"), PrimitiveFn(map),
+        symbol("filter"), PrimitiveFn(filter),
+        symbol("partition"), PrimitiveFn(partition),
+        symbol("reduce"), PrimitiveFn(reduce),
         symbol("take"), PrimitiveFn(take),
         symbol("rest"), PrimitiveFn(rest),
-        symbol("assoc"), PrimitiveFn(assoc)
+        symbol("count"), PrimitiveFn(count),
+        symbol("assoc"), PrimitiveFn(assoc),
+        symbol("conj"), PrimitiveFn(conj),
+        symbol("type"), PrimitiveFn(typeof)
     ),
     meta, hashmap()
 )
