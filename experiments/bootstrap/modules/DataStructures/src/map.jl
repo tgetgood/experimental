@@ -170,34 +170,36 @@ end
 
 function nodewalkupdate(m::PersistentHashMap, entry, hash, level)
     i = first(hash) + 1
+    node, added = nodewalkupdate(get(m.ht, i), entry, rest(hash), level + 1)
     n = assoc(
         m.ht,
         i,
-        nodewalkupdate(get(m.ht, i), entry, rest(hash), level + 1)
+        node
     )
-    return PersistentHashMap(n, m.count + 1)
+
+    return PersistentHashMap(n, m.count + added), added
 end
 
 function nodewalkupdate(m::Nothing, entry, hash, level)
-    entry
+    entry, 1
 end
 
 function nodewalkupdate(m::MapEntry, entry, hs, level)
     mh = drop(level - 1, hashseq(m.key))
     if m.key == entry.key
-        return entry
+        return entry, 0
     elseif first(mh) == first(hs)
         child = nodewalkupdate(emptyhashnode, m, hashseq(m.key), level + 1)
         child = nodewalkupdate(child, entry, hs, level + 1)
 
         parent = assoc(emptyhashnode.ht, first(mh) + 1, child)
 
-        return PersistentHashMap(parent, 2)
+        return PersistentHashMap(parent, 2), 1
     else
         ht = emptyhashnode.ht
         ht = assoc(ht, first(mh) + 1, m)
         ht = assoc(ht, first(hs) + 1, entry)
-        return PersistentHashMap(ht, 2)
+        return PersistentHashMap(ht, 2), 1
     end
 end
 
@@ -205,12 +207,35 @@ function assoc(m::PersistentHashMap, k, v)
     if get(m, k) == v
         return m
     else
-        return nodewalkupdate(m, MapEntry(k, v), hashseq(k), 1)
+        return nodewalkupdate(m, MapEntry(k, v), hashseq(k), 1)[1]
     end
 end
 
 function dissoc(m::PersistentHashMap, k)
     throw("not implemented")
+end
+
+function seq(m::PersistentHashMap)
+    # Produce VectorSeq of leaves
+    into(emptyvector, map(seq) ∘ cat(), m.ht)
+end
+
+function seq(e::MapEntry)
+    # FIXME: This boxing is only necessary because `cat` can't tell sequences
+    # from scalars.
+    vector(e)
+end
+
+function seq(x::Nothing)
+    []
+end
+
+function first(m::PersistentHashMap)
+    first(seq(m))
+end
+
+function rest(m::PersistentHashMap)
+    rest(seq(m))
 end
 
 function hashmap(args...)
@@ -226,9 +251,13 @@ function merge(x::Map, y::Map)
     into(x, y)
 end
 
+function string(x::MapEntry)
+    string(x.key) * " " * string(x.value)
+end
+
 function string(m::Map)
     inner = transduce(
-        map(x -> string(x.key) * " " * string(x.value)) ∘ interpose(", "),
+        map(string) ∘ interpose(", "),
         *,
         "",
         m

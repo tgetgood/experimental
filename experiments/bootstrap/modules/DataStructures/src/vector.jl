@@ -143,7 +143,7 @@ function seq(v::Vector)
 end
 
 function rest(v::Vector)
-    if v == emptyvector
+    if count(v) < 2
         return emptyvector
     else
         return VectorSeq(v, 2)

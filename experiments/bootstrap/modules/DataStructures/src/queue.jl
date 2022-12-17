@@ -21,7 +21,7 @@ end
 
 function conj(q::PersistentQueue, x)
     if emptyp(q)
-        return PersistentQueue(vec(x), emptyvector)
+        return PersistentQueue(vector(x), emptyvector)
     else
         return PersistentQueue(q.front, conj(q.back, x))
     end
