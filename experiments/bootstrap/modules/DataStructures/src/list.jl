@@ -5,7 +5,7 @@ abstract type List end
 # performance.
 
 struct VectorList <: List
-    contents::Vector
+    contents
 end
 
 function count(x::List)
@@ -17,14 +17,14 @@ function first(x::List)
 end
 
 function rest(x::List)
-    rest(x.contents)
+    VectorList(rest(x.contents))
 end
 
 # REVIEW: Should I even define `conj` for lists? Lists will come full cloth for
 # the most part. Let's see how far I get without it.
 
 function list(xs...)
-    VectorList(vector(xs...))
+    tolist(xs)
 end
 
 function tolist(xs)

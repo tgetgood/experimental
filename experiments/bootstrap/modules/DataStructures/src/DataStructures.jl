@@ -15,7 +15,7 @@ include("./map.jl")
 include("./queue.jl")
 
 # Sequential
-export first, rest, take, drop, reduce, transduce, into, map, filter, interpose, dup
+export first, rest, take, drop, reduce, transduce, into, map, filter, interpose, dup, cat, partition
 
 # Vectors
 export  emptyvector, nth, vec, vector

@@ -25,7 +25,7 @@ function transduce(xform, f, from)
 end
 
 function into()
-    vec()
+    vector()
 end
 
 function into(x)
@@ -64,7 +64,7 @@ function take(n, coll)
 end
 
 function conj()
-    vec()
+    vector()
 end
 
 function conj(x)
@@ -73,6 +73,24 @@ end
 
 function concat(xs, ys)
     into(xs, ys)
+end
+
+function cat()
+    function(emit)
+        function inner()
+            emit()
+        end
+        function inner(result)
+            emit(result)
+        end
+        function inner(result, next)
+            reduce(emit, result, next)
+        end
+        function inner(result, next::Base.Vector)
+            Base.reduce(emit, next, init=result)
+        end
+        return inner
+    end
 end
 
 function map(f)
@@ -84,10 +102,15 @@ function map(f)
             emit(result)
         end
         function inner(result, next)
+            println(f, ": ", typeof(next), ", ", string(next))
             emit(result, f(next))
         end
         inner
     end
+end
+
+function map(f, xs)
+    into(vector(), map(f), xs)
 end
 
 function filter(p)
@@ -109,6 +132,10 @@ function filter(p)
     end
 end
 
+function filter(p, xs)
+    into(vector(), filter(p), xs)
+end
+
 function interpose(delim)
     function(emit)
         started = false
@@ -128,6 +155,37 @@ function interpose(delim)
         end
         return inner
     end
+end
+
+function partition(n)
+    acc = vector()
+    function(emit)
+        function inner()
+            emit()
+        end
+        function inner(result)
+            if count(acc) > 0
+                emit(result, acc)
+            else
+                emit(result)
+            end
+        end
+        function inner(result, next)
+            acc = conj(acc, next)
+            if count(acc) == n
+                t = acc
+                acc = vector()
+                emit(result, t)
+            else
+                emit(result)
+            end
+        end
+        return inner
+    end
+end
+
+function partition(n, xs)
+    into(vector(), partition(n), xs)
 end
 
 function dup(emit)

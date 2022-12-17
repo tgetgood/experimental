@@ -162,6 +162,10 @@ function rest(v::VectorSeq)
     end
 end
 
+function string(v::VectorSeq)
+    "[" * transduce(map(string) ∘ interpose(" "), *, "", v) * "]"
+end
+
 function get(v::Vector, i)
     nth(v, i)
 end
@@ -179,7 +183,7 @@ function reduce(f, init::Vector, coll::VectorNode)
 end
 
 function vector(args...)
-    Base.reduce(conj, args, init=emptyvector)
+    vec(args)
 end
 
 function vec(args)
