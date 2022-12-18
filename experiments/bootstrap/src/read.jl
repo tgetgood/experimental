@@ -132,8 +132,97 @@ function readvector(stream, opts)
     vector(readsubforms(stream, ']')...)
 end
 
+specialchars = Dict(
+    't' => '\t',
+    'r' => '\r',
+    'n' => '\n',
+    'b' => '\b',
+    'f' => '\f',
+    '"' => '"',
+    '\\' => '\\'
+)
+
+function stopcondition(base)
+    if base == 8
+        return function(next)
+            !(47 < Int(next) < 56)
+        end
+    elseif base == 16
+        return function(next)
+            i = Int(next)
+            !(47 < i < 56 || 96 < i < 103 || 64 < i < 71)
+        end
+    end
+end
+
+function unicodestep(stream, sum, base)
+    next = read1(stream)
+    if stopcondition(base)(next)
+        unread1(stream, next)
+        sum, true
+    else
+        sum*base + parse(Int, "0x"*next), false
+    end
+end
+
+function readunicodehex(stream, ch)
+    done = false
+    num = parse(Int, "0x"*ch)
+    i = 0
+    while (!done && i < 3)
+        num, done = unicodestep(stream, num, 16)
+        i = i + 1
+    end
+    return Char(num)
+end
+
+function readunicodeoctal(stream, ch)
+    @assert 47 < Int(ch) && Int(ch) < 56 "Invalid digit"
+
+    out, done = unicodestep(stream, parse(Int, ch), 8)
+    if done
+        return Char(out)
+    end
+
+    out, done = unicodestep(stream, out, 8)
+
+    if out > 377
+        throw("Octal escapes must be in the range [0, 377]")
+    else
+        return Char(out)
+    end
+end
+
 function readstring(stream, opts)
-    ""
+    buf = []
+    c = read1(stream)
+    while (c != '"')
+        if c == '\\'
+            next = read1(stream)
+            char = Base.get(specialchars, next, nothing)
+            if char !== nothing
+                push!(buf, char)
+            elseif next == 'u'
+                next = read1(stream)
+                @assert !stopcondition(16)(next) "Invalid unicode escape"
+                char = readunicodehex(stream, next)
+                push!(buf, char)
+            elseif isdigit(next)
+                char = readunicodeoctal(stream, next)
+                push!(buf, char)
+            else
+                throw("Invalid escape char: " * next)
+            end
+        else
+            push!(buf, c)
+        end
+        try
+            c = read1(stream)
+        catch e
+           @error e
+        end
+    end
+    return string(buf...)
 end
 
 function readmap(stream, opts)
