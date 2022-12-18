@@ -11,7 +11,6 @@ know what I want the language to do.
 
 * Todo
   In no particular order
-  - [ ] Support comments in reader
   - [ ] sets
   - [ ] check symbol definition at read time
     This is to push errors back to read time from run time.

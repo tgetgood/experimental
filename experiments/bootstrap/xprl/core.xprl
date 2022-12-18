@@ -1,3 +1,5 @@
+;; Test some literal values
+
 :some.namespace/keyword
 
 64
@@ -7,6 +9,12 @@
 (def testmap
   {:a/simple 42
    :map      (fn [x] (+ 1 x))})
+
+;; invoke a function from a map
+((get testmap :map) 5)
+
+;; We aren't going to use combinators directly, but it's a nice test for the
+;; interpreter.
 
 (def Y
   (fn [f]
@@ -30,21 +38,30 @@
   (fn [coll]
     (first (rest coll))))
 
-(def let (macro [bindings body]
+;; Map is tricky, I can't make it a built in because then we're mixing execution
+;; models and get a form of graft vs host disease that took me a long time to
+;; debug (bug identify?).
+;;
+;; So, I'll need to implement stream processing natively, but for that, I still
+;; need primitives.
+;;
+;; Cons cells sure look like a nice idea right about now...
+
+#_(def let (macro [bindings body]
                 (list (list (quote fn) (map first (partition 2 bindings)) body)
                       (map second (partition 2 bindings)))))
 
-(def defn (macro [name args body]
-                 (list def name
-                       (list (quote fn) name args body))))
+(def defn
+  "a docstring!"
+  (macro [name args body]
+         (list def name
+               (list (quote fn) name args body))))
 
 (defn adder
   [a b]
   (+ a b 1))
 
 (adder 4 5)
-
-((get testmap :map) 5)
 
 (defn fact [n]
   (if (= n 0)

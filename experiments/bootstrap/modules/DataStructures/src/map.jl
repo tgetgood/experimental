@@ -105,10 +105,13 @@ function assoc(m::PersistentArrayMap, k, v)
     if count(m) > arraymapsizethreashold - 1
         return assoc(into(emptyhashnode, m), k, v)
     end
+
     n = emptyvector
     found = false
     for e in m.kvs
-        if e != nil && e.key == k
+        if e === nil
+            continue
+        elseif e.key == k
             n = conj(n, MapEntry(k, v))
             found = true
         else
@@ -168,7 +171,7 @@ function containsp(m::Map, k)
     get(m, k) !== nothing
 end
 
-function nodewalkupdate(m::PersistentHashMap, entry, hash, level)
+function nodewalkupdate(m::PersistentHashMap, entry::MapEntry, hash, level)
     i = first(hash) + 1
     node, added = nodewalkupdate(get(m.ht, i), entry, rest(hash), level + 1)
     n = assoc(
@@ -180,11 +183,11 @@ function nodewalkupdate(m::PersistentHashMap, entry, hash, level)
     return PersistentHashMap(n, m.count + added), added
 end
 
-function nodewalkupdate(m::Nothing, entry, hash, level)
+function nodewalkupdate(m::Nothing, entry::MapEntry, hash, level)
     entry, 1
 end
 
-function nodewalkupdate(m::MapEntry, entry, hs, level)
+function nodewalkupdate(m::MapEntry, entry::MapEntry, hs, level)
     mh = drop(level - 1, hashseq(m.key))
     if m.key == entry.key
         return entry, 0

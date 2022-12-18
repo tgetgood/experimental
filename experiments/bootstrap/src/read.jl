@@ -115,8 +115,10 @@ function readsubforms(stream, until)
     forms = []
     while true
         t = read(stream, ReaderOptions(until))
-        if t === nothing
+        if t === :close
             break
+        elseif t === nothing
+            continue
         else
             push!(forms, t)
         end
@@ -236,9 +238,35 @@ function readmap(stream, opts)
     return res
 end
 
-indirectdispatch = Dict()
+function readset(stream, opts)
+    throw("not implemented")
+end
+
+function readcomment(stream, opts)
+    c = read1(stream)
+    while c != '\n' && c != '\r'
+        c = read1(stream)
+    end
+end
+
+function readanddiscard(stream, opts)
+    read(stream, opts)
+    return nothing
+end
+
+indirectdispatch = Dict(
+    '_' => readanddiscard,
+    '{' => readset
+)
 
 function readdispatch(stream, opts)
+    c = read1(stream)
+    reader = Base.get(indirectdispatch, c, nothing)
+    if reader === nothing
+        throw("Invalid dispatch macro: " * c)
+    else
+        reader(stream, opts)
+    end
 end
 
 dispatch = Dict(
@@ -246,10 +274,11 @@ dispatch = Dict(
     '[' => readvector,
     '"' => readstring,
     '{' => readmap,
-    '#' => readdispatch
+    '#' => readdispatch,
+    ';' => readcomment
 )
 
-delimiter = r"[({\[]"
+delimiter = r"[({\[;]"
 
 function istokenbreak(c)
     iswhitespace(c) ||  match(delimiter, string(c)) !== nothing
@@ -275,7 +304,7 @@ function read(stream, opts)
     c = firstnonwhitespace(stream)
 
     if opts.until !== nothing && c === opts.until
-        return nothing
+        return :close
     end
 
     sub = Base.get(dispatch, c, nothing)
