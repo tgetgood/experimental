@@ -8,6 +8,7 @@ meta = keyword("metadata")
 ##### Interpreter internals
 
 struct Fn
+    name
     slots::Vector
     env::Map
     body
@@ -15,6 +16,7 @@ end
 
 function string(x::Fn)
     "#Fn" * string(hashmap(
+        keyword("name"), x.name,
         keyword("slots"), x.slots,
         keyword("env"), x.env,
         keyword("body"), x.body))
@@ -53,7 +55,13 @@ function xprlmacro(env, args)
 end
 
 function xprlfn(env, args)
-    Fn(first(args), env, first(rest(args)))
+    if length(args) == 3
+        name, slots, body = args
+    else
+        slots, body = args
+        name = nil
+    end
+    Fn(name, slots, env, body)
 end
 
 function xprldef(env, args)
@@ -163,8 +171,13 @@ function eval(env, form::Vector)
 end
 
 function eval(env, form::List)
-    # N.B.: `apply` is called with unevaluated forms.
-    apply(env, first(form), rest(form))
+    if count(form) == 0
+        # The empty list is a value
+        form
+    else
+        # N.B.: `apply` is called with unevaluated forms.
+        apply(env, first(form), rest(form))
+    end
 end
 
 ##### Apply
@@ -189,6 +202,13 @@ function apply(env, f::Fn, args)
     vals = into(emptyvector, map(x -> eval(env, x)), args)
 
     evenv = extend(f.env, f.slots, vals)
+
+    # If f has a name, bind that name to f in the env in which f will be
+    # invoked.
+    # This allows basic recursion without cyclic references in the env.
+    if f.name !== nothing
+        evenv = extend(evenv, vector(f.name), vector(f))
+    end
 
     eval(evenv, f.body)
 end

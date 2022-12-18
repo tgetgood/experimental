@@ -36,8 +36,7 @@
 
 (def defn (macro [name args body]
                  (list def name
-                       (let [name (list (quote fn) args body)]
-                         name))))
+                       (list (quote fn) name args body))))
 
 (defn adder
   [a b]
@@ -77,7 +76,7 @@
 (defn h [x]
   (g x))
 
-(g 3)
+(h 3)
 
 (defn harmonic-mean [xs]
   (match (first (happy-path xs))
