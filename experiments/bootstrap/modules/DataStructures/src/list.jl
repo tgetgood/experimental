@@ -12,6 +12,10 @@ function count(x::List)
     count(x.contents)
 end
 
+function length(x::List)
+    count(x)
+end
+
 function first(x::List)
     first(x.contents)
 end

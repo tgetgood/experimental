@@ -102,7 +102,6 @@ function map(f)
             emit(result)
         end
         function inner(result, next)
-            println(f, ": ", typeof(next), ", ", string(next))
             emit(result, f(next))
         end
         inner

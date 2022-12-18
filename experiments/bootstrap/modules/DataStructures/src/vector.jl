@@ -25,6 +25,10 @@ function count(v::VectorNode)
     v.count
 end
 
+function length(v::Vector)
+    count(v)
+end
+
 function fullp(v::VectorLeaf)
     count(v) == nodelength
 end
