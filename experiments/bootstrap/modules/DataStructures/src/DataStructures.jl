@@ -1,4 +1,4 @@
-module DataStructures
+#module DataStructures
 
 import Base: string,hash,==,length,iterate
 
@@ -28,7 +28,7 @@ export list, tolist
 export emptymap, assoc, dissoc, containsp, hashmap, merge, keys, vals
 
 # Queues
-export Queue, queue, emptyqueue
+export Queue, queue, emptyqueue, val, aux, closedp
 
 # Generic
 export conj, get, count, empty, emptyp, nil, keyword, name, symbol, withmeta, meta
@@ -36,4 +36,4 @@ export conj, get, count, empty, emptyp, nil, keyword, name, symbol, withmeta, me
 # Types
 export Keyword, Symbol, Map, Vector, MapEntry, List
 
-end
+#end

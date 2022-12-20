@@ -34,7 +34,9 @@ function readloopuntilend(env, stream)
     while true
         try
             env, val = step(env, stream)
-            println(string(val))
+            if val !== nothing
+                println(string(val))
+            end
         catch e
             message(e)
             if typeof(e) == EOFError
