@@ -17,7 +17,7 @@ function message(e::EOFError)
     println("Goodbye")
 end
 
-# TODO: *e, but with memory leakage
+# FIXME: *e, but with memory leakage
 traces = []
 
 function message(e)

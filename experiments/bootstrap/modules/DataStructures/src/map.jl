@@ -241,6 +241,10 @@ function rest(m::PersistentHashMap)
     rest(seq(m))
 end
 
+function update(m::Map, k, f, v...)
+    assoc(m, k, f(get(m, k), v...))
+end
+
 function hashmap(args...)
     @assert length(args) % 2 == 0
     out = emptymap

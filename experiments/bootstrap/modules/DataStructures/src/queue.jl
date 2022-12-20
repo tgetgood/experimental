@@ -67,3 +67,40 @@ end
 function rest(q::ClosedQueue)
     ClosedQueue(rest(q.elements))
 end
+
+function string(q::PersistentQueue)
+    # TODO: limit printing on large structures
+    "<-<" * transduce(interpose(", "), *, "", concat(q.front, q.back)) * "<-<"
+end
+
+##### Cables
+
+abstract type Cable end
+
+struct StreamCable
+    streams::Map
+end
+
+struct ValueCable
+    value
+    streams::Map
+end
+
+function get(x::StreamCable, k)
+    get(x.streams, k)
+end
+
+function containsp(x::StreamCable, k)
+    containsp(x.streams, k)
+end
+
+function closedp(x::StreamCable, k)
+    @assert containsp(x, k) "Cannot check status of nonextant cable: " * k
+
+    closedp(get(x, k))
+end
+
+# REVIEW: Maybe cables ought only be constructed in the interpreter methods.
+function emit!(x::StreamCable, k, v)
+    StreamCable(update(x.streams, k, conj, v))
+end
