@@ -201,7 +201,7 @@ end
 function apply(env, f::Fn, args)
     vals = into(emptyvector, map(x -> eval(env, x)), args)
 
-    evenv = extend(f.env, f.slots, map(val, vals))
+    evenv = extend(f.env, f.slots, vals)
 
     # If f has a name, bind that name to f in the env in which f will be
     # invoked.
