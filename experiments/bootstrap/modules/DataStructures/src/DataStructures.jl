@@ -1,4 +1,4 @@
-#module DataStructures
+module DataStructures
 
 import Base: string,hash,==,length,iterate
 
@@ -36,4 +36,4 @@ export conj, get, count, empty, emptyp, nil, keyword, name, symbol, withmeta, me
 # Types
 export Keyword, Symbol, Map, Vector, MapEntry, List
 
-#end
+end

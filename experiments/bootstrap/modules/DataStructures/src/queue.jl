@@ -44,10 +44,6 @@ function closedp(q::PersistentQueue)
     false
 end
 
-function count(q::PersistentQueue)
-    count(q.front) + count(q.back)
-end
-
 function emptyp(q::PersistentQueue)
     count(q.front) == 0 && count(q.back) == 0
 end
@@ -200,20 +196,19 @@ end
 
 abstract type Stream end
 
-mutable struct ContinuationStream
-    ready::Queue
-    listeners
+struct ContinuationStream
+    queue::MutableTailQueue
     receiver
 end
 
-# function stream()
-#     ContinuationStream(
-#         emptyqueue
-#         emptyvector
-#         function()
-#         end
-#     )
-# end
+function stream()
+    q = mtq()
+    function writer(v)
+        put!(q.tail, v)
+    end
+
+    ContinuationStream(q, writer)
+end
 
 ##### Cables
 
@@ -247,13 +242,13 @@ function emit!(x::StreamCable, k, v)
     StreamCable(update(x.streams, k, conj, v))
 end
 
-function val(c::ValueCable)
-    c.value
-end
+# function val(c::ValueCable)
+#     c.value
+# end
 
-function val(c::StreamCable)
-    get(c, :default)
-end
+# function val(c::StreamCable)
+#     get(c, :default)
+# end
 
 function aux(c::ValueCable)
     StreamCable(c.streams)
