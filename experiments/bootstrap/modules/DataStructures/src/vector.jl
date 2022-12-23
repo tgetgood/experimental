@@ -133,7 +133,7 @@ end
 # FIXME: This method of iterating a vector doesn't allow the head to be
 # collected and so will use more memory than expected when used in idiomatic
 # lisp fashion. That should be fixed.
-struct VectorSeq <: Sequence
+struct VectorSeq <: Vector
     v
     i
 end

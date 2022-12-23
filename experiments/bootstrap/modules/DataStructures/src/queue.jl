@@ -110,28 +110,28 @@ end
 
 struct MutableTail
     lock::ReentrantLock
-    queue::Ref{Base.Vector}
-    listeners::Ref{Base.Vector{WeakRef}}
+    queue::Base.Vector
+    listeners::Base.Vector{WeakRef}
 end
 
 function readyp(t::MutableTail)
-    length(t.queue[]) > 0
+    length(t.queue) > 0
 end
 
 function rotateinternal(tail::MutableTail)
-    for q in tail.listeners[]
+    for q in tail.listeners
         if q.value === nothing
             continue
         else
             q = q.value
-            q.front[] = Base.reduce(conj, tail.queue[], init=q.front[])
+            q.front = Base.reduce(conj, tail.queue, init=q.front)
         end
     end
 
-    # Remove collected listeners
-    tail.listeners[] = Base.filter(x -> x.value !== nothing, tail.listeners[])
+    # Clean up GCed listeners
+    Base.filter!(x -> x.value !== nothing, tail.listeners)
 
-    tail.queue[] = []
+    empty!(tail.queue)
 end
 
 function rotate!(tail::MutableTail)
@@ -139,15 +139,15 @@ function rotate!(tail::MutableTail)
 end
 
 function listen!(tail::MutableTail, x)
-    lock(() -> push!(tail.listeners[], WeakRef(x)), tail.lock)
+    lock(() -> push!(tail.listeners, WeakRef(x)), tail.lock)
 end
 
 function put!(tail::MutableTail, v)
-    lock(() -> push!(tail.queue[], v), tail.lock)
+    lock(() -> push!(tail.queue, v), tail.lock)
 end
 
-struct MutableTailQueue <: Queue
-    front::Ref{Any} # TODO: Protocols (traits). Only needs first/rest/conj
+mutable struct MutableTailQueue <: Queue
+    front::Vector
     tail::MutableTail
 end
 
@@ -165,7 +165,7 @@ function mtq()
 end
 
 function close(q::MutableTailQueue)
-    xs = lock(() -> Base.reduce(conj, q.tail.queue[], init=q.front[]), q.tail.lock)
+    xs = lock(() -> Base.reduce(conj, q.tail.queue, init=q.front), q.tail.lock)
     ClosedQueue(xs)
 end
 
@@ -177,7 +177,7 @@ function emptyp(q::MutableTailQueue)
 end
 
 function first(q::MutableTailQueue)
-    if emptyp(q.front[])
+    if emptyp(q.front)
         if !readyp(q.tail)
             # TODO: park
             throw("unimplemented")
@@ -185,14 +185,14 @@ function first(q::MutableTailQueue)
             rotate!(q.tail)
         end
     end
-    return first(q.front[])
+    return first(q.front)
 end
 
 function rest(q::MutableTailQueue)
-    if emptyp(q.front[])
+    if emptyp(q.front)
         rotate!(q.tail)
     end
-    mtq(rest(q.front[]), q.tail)
+    mtq(rest(q.front), q.tail)
 end
 
 
