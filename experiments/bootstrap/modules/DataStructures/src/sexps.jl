@@ -17,18 +17,6 @@ function meta(x::MetaExpr)
     x.metadata
 end
 
-struct String <: Sexp
-    val::AbstractString
-end
-
-struct Number <: Sexp
-    val::Base.Number
-end
-
-function string(x::Number)
-    string(x.val)
-end
-
 struct Keyword <: Sexp
     namespace
     name

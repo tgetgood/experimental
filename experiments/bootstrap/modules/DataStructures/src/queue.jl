@@ -239,7 +239,14 @@ end
 
 # REVIEW: Maybe cables ought only be constructed in the interpreter methods.
 function emit!(x::StreamCable, k, v)
-    StreamCable(update(x.streams, k, conj, v))
+    if containsp(x.streams, k)
+        get(x.streams, k).writer(v)
+    else
+        s = stream()
+        s.writer(v)
+        # I'm not sure this will work...
+        StreamCable(assoc(x.streams, k, s))
+    end
 end
 
 # function val(c::ValueCable)

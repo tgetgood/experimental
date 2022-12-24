@@ -18,14 +18,14 @@ include("./queue.jl")
 export first, rest, take, drop, reduce, transduce, into, map, filter, interpose, dup, cat, partition
 
 # Vectors
-export  emptyvector, nth, vec, vector
+export  emptyvector, nth, vec, vector, zip
 
 # Lists
 
 export list, tolist
 
 # Maps
-export emptymap, assoc, dissoc, containsp, hashmap, merge, keys, vals
+export emptymap, assoc, update, dissoc, containsp, hashmap, merge, keys, vals
 
 # Queues
 export Queue, queue, emptyqueue, val, aux, closedp

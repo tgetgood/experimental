@@ -130,6 +130,14 @@ function assoc(v::VectorNode, i, val)
 
 end
 
+function zip(v1::Vector, v2::Vector)
+    v = emptyvector
+    for i = 1:min(count(v1), count(v2))
+        v = conj(v, vector(nth(v1, i), nth(v2, i)))
+    end
+    return v
+end
+
 # FIXME: This method of iterating a vector doesn't allow the head to be
 # collected and so will use more memory than expected when used in idiomatic
 # lisp fashion. That should be fixed.
