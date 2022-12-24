@@ -10,6 +10,17 @@
   {:a/simple 42
    :map      (fn [x] (+ 1 x))})
 
+;; Test destructuring
+
+
+(def m {:a 456 :b :b "xyz" :c})
+
+((fn [{:keys [a b c] extra "xyz" :as m}]
+   [a extra m])
+ m)
+
+((fn [[x y]] y) [1 2 3 4])
+
 ;; invoke a function from a map
 ((get testmap :map) 5)
 

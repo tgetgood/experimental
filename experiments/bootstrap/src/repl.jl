@@ -1,3 +1,10 @@
+using DataStructures
+using DataStructures: Symbol, Vector, Map, List, first, rest, get, map, count, reduce,  conj, keys, vec, filter, partition, zip
+import DataStructures: string
+
+include("./primitives.jl")
+include("./env.jl")
+include("./xprl.jl")
 include("./read.jl")
 include("./eval.jl")
 
