@@ -1,8 +1,6 @@
 syms = keyword("symbols")
 meta = keyword("metadata")
 
-# TODO: general destructuring
-
 function extend(env::Map, binding::Symbol, val)
     update(env, syms, assoc, binding, val)
 end
@@ -13,9 +11,15 @@ function extend(env::Map, bindings::Vector, vals)
     @assert count(bindings) <= count(vals) "Insufficient values for destructuring"
 
     for i in 1:count(bindings)
-        env = extend(env, first(bindings), first(vals))
-        bindings = rest(bindings)
-        vals = rest(vals)
+        s = first(bindings)
+        if s == symbol("&")
+             env = extend(env, first(rest(bindings)), vals)
+            break
+        else
+            env = extend(env, s, first(vals))
+            bindings = rest(bindings)
+            vals = rest(vals)
+        end
     end
 
     return env
@@ -38,8 +42,10 @@ function extend(env::Map, binding::MapEntry, val::Map)
         extend(env, binding.value, val)
     elseif binding.key == keyword("keys")
         reduce(
-            # FIXME: namespaced keywords!
-            (env, s) -> extend(env, s, get(val, keyword(name(s)))),
+            # REVIEW: This binds namespaced keywords to namespaced (local)
+            # symbols. In theory this could lead to weird shadowing, but in
+            # practice I think it might be the right thing to do. We'll see...
+            (env, s) -> extend(env, s, get(val, keyword(s))),
             env,
             binding.value
         )

@@ -27,8 +27,12 @@ struct Symbol <: Sexp
     name
 end
 
-function symbol(name)
+function symbol(name::String)
     Symbol(nil, name)
+end
+
+function symbol(k::Keyword)
+    Symbol(k.namespace, k.name)
 end
 
 function symbol(namespace, name)
@@ -69,9 +73,14 @@ function ==(x::Keyword, y::Keyword)
 end
 
 # TODO: Intern keywords.
-function keyword(name)
+function keyword(name::String)
     Keyword(nil, name)
 end
+
+function keyword(s::Symbol)
+    Keyword(s.namespace, s.name)
+end
+
 
 function keyword(ns, name)
     Keyword(ns, name)

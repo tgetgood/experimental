@@ -6,23 +6,28 @@
 
 [4 5 60]
 
+((fn [[x y & more]] [y more]) [1 2 3 4])
+
 (def testmap
   {:a/simple 42
-   :map      (fn [x] (+ 1 x))})
+   :map      (fn [x] (+ 1 x))
+   :a        456
+   :b        [:b 1 "asd" 5 :fu]
+   "xyz"     :c})
 
 ;; Test destructuring
 
-
-(def m {:a 456 :b :b "xyz" :c})
-
-((fn [{:keys [a b c] extra "xyz" :as m}]
-   [a extra m])
- m)
-
-((fn [[x y]] y) [1 2 3 4])
-
 ;; invoke a function from a map
 ((get testmap :map) 5)
+
+((fn [{:keys [a b c] extra "xyz" :as m}]
+   [a extra (get m :map)])
+ testmap)
+
+((fn [{:keys        [a/simple]
+       [_ _ & more] :b}]
+   [a/simple more])
+ testmap)
 
 ;; We aren't going to use combinators directly, but it's a nice test for the
 ;; interpreter.
