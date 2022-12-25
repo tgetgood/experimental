@@ -95,7 +95,7 @@ function first(v::VectorNode)
 end
 
 function nth(v::VectorLeaf, n)
-    if n > count(v)
+    if n > count(v) || n < 1
         throw("Index out of bounds")
     else
         return v.elements[n]
@@ -103,7 +103,7 @@ function nth(v::VectorLeaf, n)
 end
 
 function nth(v::VectorNode, n)
-    if n > count(v)
+    if n > count(v) || n < 1
         throw("Index out of bounds")
     else
         # FIXME: This should be binary search, but I'm lazy
@@ -205,6 +205,16 @@ end
 function vec(v::Vector)
     v
 end
+
+function reverse(v::Vector)
+    r = emptyvector
+    for i = count(v):-1:1
+        r = conj(r, nth(v, i))
+    end
+    r
+end
+
+
 
 function string(v::Vector)
     "[" * transduce(interpose(" ") ∘ map(string), *, "", v) * "]"
