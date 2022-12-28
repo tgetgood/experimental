@@ -144,7 +144,7 @@ end
 
 mutable struct MutableTailQueue <: Queue
     front::Vector
-    tail::MutableTail
+    const tail::MutableTail
 end
 
 # Multiple Queues can share a mutable tail.
@@ -198,11 +198,12 @@ abstract type Stream end
 
 struct ContinuationStream
     queue::MutableTailQueue
-    receiver
+    emit
 end
 
 function stream()
     q = mtq()
+
     function writer(v)
         put!(q.tail, v)
     end
@@ -214,7 +215,8 @@ end
 
 abstract type Cable end
 
-struct StreamCable
+mutable struct StreamCable
+    const lock::ReentrantLock
     streams::Map
 end
 
@@ -223,8 +225,16 @@ struct ValueCable
     streams::Map
 end
 
+function cable()
+    StreamCable(ReentrantLock(), emptymap)
+end
+
 function get(x::StreamCable, k)
     get(x.streams, k)
+end
+
+function default(x::StreamCable)
+    get(x, :default)
 end
 
 function containsp(x::StreamCable, k)
@@ -232,7 +242,7 @@ function containsp(x::StreamCable, k)
 end
 
 function closedp(x::StreamCable, k)
-    @assert containsp(x, k) "Cannot check status of nonextant cable: " * k
+    @assert containsp(x, k) "Cannot check status of nonextant stream: " * k
 
     closedp(get(x, k))
 end
@@ -240,12 +250,13 @@ end
 # REVIEW: Maybe cables ought only be constructed in the interpreter methods.
 function emit!(x::StreamCable, k, v)
     if containsp(x.streams, k)
-        get(x.streams, k).writer(v)
+        put!(get(x.streams, k).tail, v)
     else
-        s = stream()
-        s.writer(v)
-        # I'm not sure this will work...
-        StreamCable(assoc(x.streams, k, s))
+        s = mtq()
+        put!(s.tail, v)
+        # This is the only operation that mutates a cable: adding in a new
+        # stream on demand.
+        lock(() -> x.streams = assoc(x.streams, k, s), x.lock)
     end
 end
 
@@ -256,6 +267,7 @@ end
 # function val(c::StreamCable)
 #     get(c, :default)
 # end
+
 
 function aux(c::ValueCable)
     StreamCable(c.streams)
