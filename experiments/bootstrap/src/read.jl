@@ -38,11 +38,11 @@ function unread1(s::StringStream, c::Char)
     s.index = j
 end
 
-function stream(s::IO)
+function tostream(s::IO)
     BufferedStream(s, [])
 end
 
-function stream(s::String)
+function tostream(s::String)
     StringStream(s, 1)
 end
 
@@ -288,12 +288,20 @@ function readtoken(stream, opts)
     out = ""
 
     while true
-        c = read1(stream)
-        if istokenbreak(c) || c === opts.until
-            unread1(stream, c)
-            break
-        else
-            out = out*c
+        try
+            c = read1(stream)
+            if istokenbreak(c) || c === opts.until
+                unread1(stream, c)
+                break
+            else
+                out = out*c
+            end
+        catch e
+            if typeof(e) == EOFError
+                break
+            else
+                throw(e)
+            end
         end
     end
 
@@ -322,11 +330,11 @@ function read(stream)
 end
 
 function read(s::String)
-    read(stream(s))
+    read(tostream(s))
 end
 
 function read(s::IO)
-    read(stream(s))
+    read(tostream(s))
 end
 
 # """N.B. This will run forever if `stream` doesn't eventually close"""
