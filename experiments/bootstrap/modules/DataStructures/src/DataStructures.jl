@@ -28,7 +28,7 @@ export list, tolist
 export emptymap, assoc, update, dissoc, containsp, hashmap, merge, keys, vals
 
 # Queues
-export Queue, queue, emptyqueue, val, aux, closedp
+export Queue, queue, emptyqueue, closedp, emptystream, put!
 
 # Generic
 export conj, get, count, empty, emptyp, nil, keyword, name, symbol, withmeta, meta

@@ -106,7 +106,7 @@ end
 
 struct MutableTail
     lock::ReentrantLock
-    queue::Base.Vector
+    ch::Channel
     listeners::Base.Vector{WeakRef}
 end
 
@@ -115,19 +115,28 @@ function readyp(t::MutableTail)
 end
 
 function rotateinternal(tail::MutableTail)
+    vals = []
+    i = 1
+
+    # park until we have at least 1 value.
+    push!(vals, take!(tail.ch))
+
+    # Take up to 32 values at a time to prevent hijacking by noisy producers.
+    while isready(tail.ch) && i < 32
+        push!(vals, take!(tail.ch))
+    end
+
     for q in tail.listeners
         if q.value === nothing
             continue
         else
             q = q.value
-            q.front = Base.reduce(conj, tail.queue, init=q.front)
+            q.front = Base.reduce(conj, vals, init=q.front)
         end
     end
 
     # Clean up GCed listeners
     Base.filter!(x -> x.value !== nothing, tail.listeners)
-
-    empty!(tail.queue)
 end
 
 function rotate!(tail::MutableTail)
@@ -139,7 +148,8 @@ function listen!(tail::MutableTail, x)
 end
 
 function put!(tail::MutableTail, v)
-    lock(() -> push!(tail.queue, v), tail.lock)
+    # We depend on the underlying channel impl for back pressure.
+    Base.put!(tail.ch, v)
 end
 
 mutable struct MutableTailQueue <: Queue
@@ -157,13 +167,14 @@ function mtq(f, t)
 end
 
 function mtq()
-    mtq(emptyvector, MutableTail(ReentrantLock(), [], []))
+    mtq(emptyvector, MutableTail(ReentrantLock(), Channel(32), []))
 end
 
-function close(q::MutableTailQueue)
-    xs = lock(() -> Base.reduce(conj, q.tail.queue, init=q.front), q.tail.lock)
-    ClosedQueue(xs)
-end
+## FIXME: This is broken with channels, but I'm not sure I need it.
+# function close(q::MutableTailQueue)
+#     xs = lock(() -> Base.reduce(conj, q.tail.queue, init=q.front), q.tail.lock)
+#     ClosedQueue(xs)
+# end
 
 function emptyp(q::MutableTailQueue)
     # A queue with a mutable tail is never empty, since it's always *possible*
@@ -174,12 +185,7 @@ end
 
 function first(q::MutableTailQueue)
     if emptyp(q.front)
-        if !readyp(q.tail)
-            # TODO: park
-            throw("unimplemented")
-        else
-            rotate!(q.tail)
-        end
+        rotate!(q.tail)
     end
     return first(q.front)
 end
@@ -191,88 +197,4 @@ function rest(q::MutableTailQueue)
     mtq(rest(q.front), q.tail)
 end
 
-
-##### Streams
-
-abstract type Stream end
-
-struct ContinuationStream
-    queue::MutableTailQueue
-    emit
-end
-
-function stream()
-    q = mtq()
-
-    function writer(v)
-        put!(q.tail, v)
-    end
-
-    ContinuationStream(q, writer)
-end
-
-##### Cables
-
-abstract type Cable end
-
-mutable struct StreamCable
-    const lock::ReentrantLock
-    streams::Map
-end
-
-struct ValueCable
-    value
-    streams::Map
-end
-
-function cable()
-    StreamCable(ReentrantLock(), emptymap)
-end
-
-function get(x::StreamCable, k)
-    get(x.streams, k)
-end
-
-function default(x::StreamCable)
-    get(x, :default)
-end
-
-function containsp(x::StreamCable, k)
-    containsp(x.streams, k)
-end
-
-function closedp(x::StreamCable, k)
-    @assert containsp(x, k) "Cannot check status of nonextant stream: " * k
-
-    closedp(get(x, k))
-end
-
-# REVIEW: Maybe cables ought only be constructed in the interpreter methods.
-function emit!(x::StreamCable, k, v)
-    if containsp(x.streams, k)
-        put!(get(x.streams, k).tail, v)
-    else
-        s = mtq()
-        put!(s.tail, v)
-        # This is the only operation that mutates a cable: adding in a new
-        # stream on demand.
-        lock(() -> x.streams = assoc(x.streams, k, s), x.lock)
-    end
-end
-
-# function val(c::ValueCable)
-#     c.value
-# end
-
-# function val(c::StreamCable)
-#     get(c, :default)
-# end
-
-
-function aux(c::ValueCable)
-    StreamCable(c.streams)
-end
-
-function aux(c::StreamCable)
-    StreamCable(dissoc(c.streams, :default))
-end
+emptystream = mtq
