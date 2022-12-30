@@ -7,13 +7,28 @@
 # These functions are *primitive*, in the sense that they cannot be implemented
 # in the language they implement.
 
+function defaultemit(ch, v)
+    @warn "Message received on " *
+        string(ch) *
+        " which is not connected to anything."
+end
+
 initenv = hashmap(
     syms, hashmap(
+        # Lisp 101
         symbol("def"), PrimitiveMacro(xprldef),
         symbol("fn"), PrimitiveMacro(xprlfn),
         symbol("quote"), PrimitiveMacro((env, x) -> first(x)),
         symbol("macro"), PrimitiveMacro(xprlmacro),
         symbol("if"), PrimitiveMacro(xprlif),
+
+        # wires & streams
+        symbol("ground"), PrimitiveMacro(ground),
+        symbol("wire"), PrimitiveMacro(wire),
+        symbol("emit"), PrimitiveMacro(xprlemit),
+
+        # Standard library
+        # Most of these should be bootstrapped
         symbol("+"), PrimitiveFn(+),
         symbol("-"), PrimitiveFn(-),
         symbol("*"), PrimitiveFn(*),
@@ -25,17 +40,14 @@ initenv = hashmap(
         symbol("contains?"), PrimitiveFn(containsp),
         symbol("empty?"), PrimitiveFn(emptyp),
         symbol("first"), PrimitiveFn(first),
-        symbol("into"), PrimitiveFn(into),
-        symbol("map"), PrimitiveFn(map),
-        symbol("filter"), PrimitiveFn(filter),
-        symbol("partition"), PrimitiveFn(partition),
-        symbol("reduce"), PrimitiveFn(reduce),
         symbol("take"), PrimitiveFn(take),
         symbol("rest"), PrimitiveFn(rest),
         symbol("count"), PrimitiveFn(count),
         symbol("assoc"), PrimitiveFn(assoc),
         symbol("conj"), PrimitiveFn(conj),
-        symbol("type"), PrimitiveFn(typeof)
+        symbol("type"), PrimitiveFn(typeof),
     ),
-    meta, hashmap()
+    meta, hashmap(),
+    keyword("current-ns"), keyword("xprl", "user"),
+    emitsym, defaultemit
 )

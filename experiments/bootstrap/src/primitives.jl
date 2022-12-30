@@ -54,7 +54,7 @@ function xprlfn(env, args)
         slots, body = args
         name = nil
     end
-    Fn(name, slots, env, body)
+    emitter(env)(:default, Fn(name, slots, env, body))
 end
 
 function xprldef(env, args)
@@ -77,9 +77,46 @@ function xprldef(env, args)
 end
 
 function xprlif(env, args)
-    if eval(env, first(args)) == true
+    if eval(env, first(args)) === true
         eval(env, first(rest(args)))
     else
         eval(env, first(rest(rest(args))))
     end
+end
+
+##### continuation manipulating macros
+
+function ground(env, body)
+    function emit(ch, v)
+       emitter(env, vector(ch, v))
+    end
+    eval(set_emit(env, emit), body)
+end
+
+function wire(env, args)
+    m = first(args)
+    body = first(rest(args))
+
+    function emit(ch, v)
+        listener = get(m, ch, nothing)
+        if listener === nothing
+            emitter(env)(ch, v)
+        else
+            eval(env, list(listener, v))
+        end
+    end
+    eval(set_emit(env, emit), body)
+end
+
+function xprlemit(env, args)
+    arg1 = first(args)
+    @assert arg1 !== nil "Cannot emit nil."
+
+    if count(args) == 1
+        emitter(env)(:default, eval(env, arg1))
+    else
+        emitter(env)(arg1, eval(env, first(rest(args))))
+    end
+
+    return nothing
 end

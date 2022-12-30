@@ -12,6 +12,12 @@ know what I want the language to do.
 * Todo
   In no particular order
   - [ ] sets
+  - [ ] GC friendly iteration
+    Currently =rest= returns a seq struct which retains a pointer to the head of
+    the thing being iterated.
+
+    Quick and dirty, & will OOM if we try and run anything with large event
+    streams.
   - [ ] check symbol definition at read time
     This is to push errors back to read time from run time.
 

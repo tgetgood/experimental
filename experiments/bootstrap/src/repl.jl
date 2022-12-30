@@ -2,8 +2,13 @@ using DataStructures
 using DataStructures: Symbol, Vector, Map, List, first, rest, get, map, count, reduce,  conj, keys, vec, filter, partition, zip
 import DataStructures: string
 
-include("./primitives.jl")
+emitsym = symbol("emit")
+syms = keyword("symbols")
+meta = keyword("metadata")
+
+include("./rt.jl")
 include("./env.jl")
+include("./primitives.jl")
 include("./xprl.jl")
 include("./read.jl")
 include("./eval.jl")
@@ -37,13 +42,16 @@ function message(e)
         Base.reduce(*, Base.map(x -> string(x) * "\n", trace))
 end
 
+function emit_println(ch, v)
+    if v !== nothing
+        println(string(v))
+    end
+end
+
 function readloopuntilend(env, stream)
     while true
         try
-            env, val = step(env, stream)
-            if val !== nothing
-                println(string(val))
-            end
+            env, val = step(set_emit(env, emit_println), stream)
         catch e
             message(e)
             if typeof(e) == EOFError
@@ -54,7 +62,7 @@ function readloopuntilend(env, stream)
 end
 
 function readfile(env, filename)
-    fs = stream(open(filename))
+    fs = tostream(open(filename))
 
     readloopuntilend(env, fs)
 end
@@ -66,7 +74,7 @@ end
 
 # Test it out
 
-env = readfile(initenv, "../xprl/core.xprl")
+#env = readfile(initenv, "../xprl/core.xprl")
 
 println("")
 

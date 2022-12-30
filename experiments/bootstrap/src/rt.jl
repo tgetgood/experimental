@@ -1,7 +1,11 @@
 # Scheduling and task coordination
 
-function task(args...)
-end
+xprlIO = Dict(
+    keyword("stdout") => println,
+    keyword("stderr") => x -> @error x,
+    keyword("stdin") => nil
+)
 
-function stream()
+function task(f, args...)
+    schedule(Task(() -> f(args...)))
 end

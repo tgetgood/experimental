@@ -1,13 +1,11 @@
-syms = keyword("symbols")
-meta = keyword("metadata")
-
 function extend(env::Map, binding::Symbol, val)
     update(env, syms, assoc, binding, val)
 end
 
 function extend(env::Map, bindings::Vector, vals)
     @assert isa(vals, Vector) || isa(vals, List) "Cannot destructure a " *
-        typeof(vals) * " as a Vector."
+        string(typeof(vals)) *
+        " as a Vector."
     @assert count(bindings) <= count(vals) "Insufficient values for destructuring"
 
     for i in 1:count(bindings)
