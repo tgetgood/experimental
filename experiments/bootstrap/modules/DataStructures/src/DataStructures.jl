@@ -1,6 +1,6 @@
 module DataStructures
 
-import Base: string,hash,==,length,iterate
+import Base: string,hash,==,length,iterate, put!
 
 # How many bits of hash are used at each level of the HAMT?
 hashbits = 5
@@ -28,7 +28,7 @@ export list, tolist
 export emptymap, assoc, update, dissoc, containsp, hashmap, merge, keys, vals
 
 # Queues
-export Queue, queue, emptyqueue, closedp, emptystream, put!
+export Queue, queue, emptyqueue, closedp, emptystream, put!, Stream, stream
 
 # Generic
 export conj, get, count, empty, emptyp, nil, keyword, name, symbol, withmeta, meta

@@ -152,7 +152,9 @@ function put!(tail::MutableTail, v)
     Base.put!(tail.ch, v)
 end
 
-mutable struct MutableTailQueue <: Queue
+abstract type Stream <: Queue end
+
+mutable struct MutableTailQueue <: Stream
     front::Vector
     const tail::MutableTail
 end
@@ -198,3 +200,7 @@ function rest(q::MutableTailQueue)
 end
 
 emptystream = mtq
+
+function stream(val)
+    return mtq(vector(val), mtq().tail)
+end
