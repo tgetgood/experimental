@@ -11,6 +11,7 @@ know what I want the language to do.
 
 * Todo
   In no particular order
+  - [ ] Pass debug (trace) info around in exection environment
   - [ ] sets
   - [ ] GC friendly iteration
     Currently =rest= returns a seq struct which retains a pointer to the head of
@@ -23,8 +24,8 @@ know what I want the language to do.
 
     They're the same right now, but that won't always be the case.
   - [ ] streams
-    We have queues, we just need to define cable construction, =wire=, and
-    =emit=.
+    We have emission cables, but we still need input streams and a bridge from
+    the cables of one process to the streams of another.
   - [ ] destructuring
     useful by itself, obviously, but =match= is much less useful without it.
   - [ ] match

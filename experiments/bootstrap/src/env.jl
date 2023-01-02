@@ -65,7 +65,5 @@ function withmeta(env, sym, key, value)
 end
 
 function lookup(env, symbol)
-    v = get(get(env, syms), symbol)
-    @assert v !== nil "Unresolved symbol: " * string(symbol)
-    return v
+    get(get(env, syms), symbol)
 end

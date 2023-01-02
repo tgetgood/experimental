@@ -80,12 +80,23 @@ function conj(v::Map, e::Nothing)
     v
 end
 
-# Clojure uses 8, but I'm just delaying finishing the hashmap impl.
+# Clojure uses 8 and I don't want to dig into it just yet.
+# Well actually, clojure uses alternating keys and values instead of an array of
+# MapEntries which avoids an extra memory indirection. I should do that.
 # TODO: Analysis
 arraymapsizethreashold = 8
 
 function get(m::Nothing, k)
     nil
+end
+
+function get(m::Map, k, default)
+    v = get(m, k)
+    if v === nothing
+        default
+    else
+        v
+    end
 end
 
 function get(m::PersistentArrayMap, k)

@@ -18,7 +18,7 @@ initenv = hashmap(
         # Lisp 101
         symbol("def"), PrimitiveMacro(xprldef),
         symbol("fn"), PrimitiveMacro(xprlfn),
-        symbol("quote"), PrimitiveMacro((env, x) -> first(x)),
+        symbol("quote"), PrimitiveMacro(xprlquote),
         symbol("macro"), PrimitiveMacro(xprlmacro),
         symbol("if"), PrimitiveMacro(xprlif),
 
@@ -26,6 +26,8 @@ initenv = hashmap(
         symbol("ground"), PrimitiveMacro(ground),
         symbol("wire"), PrimitiveMacro(wire),
         symbol("emit"), PrimitiveMacro(xprlemit),
+        symbol("default"), default,
+        symbol("onclose"), closed,
 
         # Standard library
         # Most of these should be bootstrapped

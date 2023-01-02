@@ -44,7 +44,11 @@ struct PrimitiveFn
 end
 
 function xprlmacro(env, args)
-    Macro(first(args), env, first(rest(args)))
+    emitter(env)(default, Macro(first(args), env, first(rest(args))))
+end
+
+function xprlquote(env, args)
+    emitter(env)(default, first(args))
 end
 
 function xprlfn(env, args)
@@ -54,7 +58,7 @@ function xprlfn(env, args)
         slots, body = args
         name = nil
     end
-    emitter(env)(:default, Fn(name, slots, env, body))
+    emitter(env)(default, Fn(name, slots, env, body))
 end
 
 function xprldef(env, args)
@@ -68,16 +72,20 @@ function xprldef(env, args)
         form = first(args)
     end
 
-    env = extend(env, sym, eval(env, form))
-    if doc !== nothing
-        env = withmeta(env, sym, keyword("doc"), doc)
-    end
+    body = eval_async(env, form)
+    if body !== nothing
+        env = extend(env, sym, body)
+        if doc !== nothing
+            env = withmeta(env, sym, keyword("doc"), doc)
+        end
 
-    return ModEnv(env, sym)
+        emitter(env)(keyword("env"), env)
+        emitter(env)(default, sym)
+    end
 end
 
 function xprlif(env, args)
-    if eval(env, first(args)) === true
+    if eval_async(env, first(args)) === true
         eval(env, first(rest(args)))
     else
         eval(env, first(rest(rest(args))))
@@ -108,15 +116,41 @@ function wire(env, args)
     eval(set_emit(env, emit), body)
 end
 
-function xprlemit(env, args)
-    arg1 = first(args)
-    @assert arg1 !== nil "Cannot emit nil."
-
-    if count(args) == 1
-        emitter(env)(:default, eval(env, arg1))
-    else
-        emitter(env)(arg1, eval(env, first(rest(args))))
+function emit(env, ch::Keyword, v)
+    val = eval_async(env, v)
+    if val !== nothing
+        emitter(env)(ch, val)
     end
+end
 
+function emit(env, ch::Keyword, v, more...)
+    @assert length(more) % 2 == 0 "emit requires an even number of arguments"
+
+    e = emitter(env)
+    e(ch, v)
+    for i = 1:2:length(more)
+        e(more[i], more[i+1])
+    end
+end
+
+# The map form of `emit` takes keywords to vectors.
+# for each key, each value of the corresponding vector is emitted individually
+# and in order.
+function emit(env, m::Map)
+    for e in m
+        k = e.key
+        for v in m.value
+            emit(env, k, v)
+        end
+    end
+end
+
+function emit(env, v::Nothing)
+    @assert false "Cannot emit nil."
+end
+
+
+function xprlemit(env, args)
+    emit(env, args...)
     return nothing
 end
