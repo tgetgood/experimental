@@ -38,7 +38,11 @@ function nth(l::VectorList, i)
 end
 
 function rest(x::VectorList)
-    VectorListSeq(x.contents, count(x) - 1)
+    if count(x) == 0
+        emptylist
+    else
+        VectorListSeq(x.contents, count(x) - 1)
+    end
 end
 
 function first(x::VectorListSeq)
