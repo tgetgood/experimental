@@ -82,13 +82,21 @@ function splitsymbolic(x::String)
 end
 
 function readkeyword(x)
-    ns, name = splitsymbolic(x[2:end])
-    keyword(ns, name)
+    if x == ":/"
+        keyword("/")
+    else
+        ns, name = splitsymbolic(x[2:end])
+        keyword(ns, name)
+    end
 end
 
 function readsymbol(x)
-    ns, name = splitsymbolic(x)
-    symbol(ns, name)
+    if x == "/"
+        symbol("/")
+    else
+        ns, name = splitsymbolic(x)
+        symbol(ns, name)
+    end
 end
 
 function interpret(x::String)
