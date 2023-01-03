@@ -72,7 +72,7 @@ function xprldef(env, args)
         form = first(args)
     end
 
-    body = eval_async(env, form)
+    body = eval_stream(env, form)
     if body !== nothing
         env = extend(env, sym, body)
         if doc !== nothing
@@ -166,7 +166,7 @@ end
 function xprlrecur(env, args)
     a1 = first(args)
     if first(a1) == emitsym
-        emitargs = eval_seq_async(env, rest(a1))
+        emitargs = eval_stream(env, rest(a1))
         if emitargs !== nothing
             emit(env, emitargs...)
         end

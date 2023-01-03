@@ -149,7 +149,7 @@ end
 
 function put!(tail::MutableTail, v)
     # We depend on the underlying channel impl for back pressure.
-    Base.put!(tail.ch, v)
+    put!(tail.ch, v)
 end
 
 abstract type Stream <: Queue end
@@ -203,4 +203,15 @@ emptystream = mtq
 
 function stream(val)
     return mtq(vector(val), mtq().tail)
+end
+
+function put!(q::MutableTailQueue, x)
+    put!(q.tail, x)
+end
+
+function bind(q::MutableTailQueue, t::Task)
+    @async begin
+        wait(t)
+        close(q)
+    end
 end

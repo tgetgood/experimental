@@ -40,13 +40,6 @@ function emit_println(ch, v)
     end
 end
 
-
-function temit(ch, x)
-    println(string(x) * " on " * string(ch))
-end
-
-
-
 function readloopuntilend(env, stream)
     # This is a bit of a hack
     function ground_emit(ch, v)
@@ -90,8 +83,8 @@ end
 
 # Test it out
 
-env = readfile(initenv, "../xprl/core.xprl")
+#env = readfile(initenv, "../xprl/core.xprl")
 
-repl(env)
+repl(initenv)
 
 #e2 = readfile(env, "../xprl/advent-2020-1.xprl")
