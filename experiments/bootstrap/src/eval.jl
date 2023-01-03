@@ -1,5 +1,15 @@
 ##### continuation management
 
+function set_recursor(env, f)
+    assoc(env, recursym, f)
+end
+
+function recursor(env)
+    r = get(env, recursym, nil)
+    @assert r !== nil "Can only recur within a function body"
+    args -> apply(env, r, args)
+end
+
 function set_emit(env, emit)
     assoc(env, emitsym, emit)
 end
@@ -167,6 +177,9 @@ function apply(env, f::Fn, args)
 
         # Lexical bindings, dynamic continuation
         evenv = set_emit(evenv, emitter(env))
+
+        # Set the `recur` point whether the fn is named or not
+        evenv = set_recursor(evenv, f)
 
         v = eval_async(evenv, f.body)
 

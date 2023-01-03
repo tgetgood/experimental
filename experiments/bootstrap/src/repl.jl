@@ -3,6 +3,7 @@ using DataStructures: Symbol, Vector, Map, List, first, rest, get, map, count, r
 import DataStructures: string
 
 emitsym = symbol("emit")
+recursym = symbol("recur")
 syms = keyword("symbols")
 meta = keyword("metadata")
 
@@ -91,6 +92,6 @@ end
 
 env = readfile(initenv, "../xprl/core.xprl")
 
-println("")
+repl(env)
 
-e2 = readfile(env, "../xprl/advent-2020-1.xprl")
+#e2 = readfile(env, "../xprl/advent-2020-1.xprl")

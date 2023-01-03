@@ -154,3 +154,24 @@ function xprlemit(env, args)
     emit(env, args...)
     return nothing
 end
+
+## `recur` is a funny thing here. Emission and recursion are bundled into a
+## forking operation. Effectively a normal `emit` where one of the messages goes
+## back to the sender's entry point.
+##
+## That would be the aesthetically pleasing way to implement this, but after
+## more false starts than I care to admit, I'm ready do something else before
+## trying again.
+
+function xprlrecur(env, args)
+    a1 = first(args)
+    if first(a1) == emitsym
+        emitargs = eval_seq_async(env, rest(a1))
+        if emitargs !== nothing
+            emit(env, emitargs...)
+        end
+        args = rest(args)
+    end
+
+    recursor(env)(env, args)
+end

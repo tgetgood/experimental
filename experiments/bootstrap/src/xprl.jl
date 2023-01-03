@@ -27,13 +27,14 @@ initenv = hashmap(
         symbol("wire"), PrimitiveMacro(wire),
         symbol("emit"), PrimitiveMacro(xprlemit),
         symbol("default"), default,
-        symbol("onclose"), closed,
+        symbol("recur"), PrimitiveMacro(xprlrecur),
 
         # Standard library
         # Most of these should be bootstrapped
         symbol("+"), PrimitiveFn(+),
         symbol("-"), PrimitiveFn(-),
         symbol("*"), PrimitiveFn(*),
+        symbol("/"), PrimitiveFn(/),
         symbol("="), PrimitiveFn(==),
         symbol(">"), PrimitiveFn(>),
         symbol("<"), PrimitiveFn(<),

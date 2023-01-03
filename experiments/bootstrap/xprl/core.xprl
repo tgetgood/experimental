@@ -111,6 +111,12 @@
 
 (h 3)
 
+(defn map [f]
+  (fn [xs]
+    (recur (emit default (f (first xs))) (rest xs))))
+
+((map g) [1 2 3 4])
+
 (defn harmonic-mean [xs]
   (match (first (ground (happy-path xs)))
     [:zero _]         0
