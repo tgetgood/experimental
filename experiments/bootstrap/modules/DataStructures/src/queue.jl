@@ -215,3 +215,7 @@ function bind(q::MutableTailQueue, t::Task)
         close(q)
     end
 end
+
+function string(q::MutableTailQueue)
+    "<-("*transduce(map(string) ∘ interpose(", "), *, "", q.front)*",...)-<"
+end
