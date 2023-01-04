@@ -1,0 +1,7 @@
+;(def t ((map (fn [x] (+ x 1))) [1 2 3 4]))
+
+(def s (stream ((map (fn [x] (+ x 1))) [1 2 3 4])))
+
+(first s)
+
+;(first (rest s))

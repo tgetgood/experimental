@@ -1,71 +1,7 @@
-;; Test some literal values
-
-:some.namespace/keyword
-
-64
-
-[4 5 60]
-
-((fn [[x y & more]] [y more]) [1 2 3 4])
-
-(def testmap
-  {:a/simple 42
-   :map      (fn [x] (+ 1 x))
-   :a        456
-   :b        [:b 1 "asd" 5 :fu]
-   "xyz"     :c})
-
-;; Test destructuring
-
-;; invoke a function from a map
-((get testmap :map) 5)
-
-((fn [{:keys [a b c] extra "xyz" :as m}]
-   [a extra (get m :map)])
- testmap)
-
-((fn [{:keys        [a/simple]
-       [_ _ & more] :b}]
-   [a/simple more])
- testmap)
-
-;; We aren't going to use combinators directly, but it's a nice test for the
-;; interpreter.
-
-(def Y
-  (fn [f]
-    ((fn [x]
-       (f (fn [y]
-            ((x x) y))))
-     (fn [x]
-       (f (fn [y]
-            ((x x) y)))))))
-
-(def Yfact
-  (Y (fn [fact]
-       (fn [n]
-         (if (< n 2)
-           1
-           (* n (fact (- n 1))))))))
-
-(Yfact 5)
-
 (def second
   (fn [coll]
     (first (rest coll))))
 
-;; Map is tricky, I can't make it a built in because then we're mixing execution
-;; models and get a form of graft vs host disease that took me a long time to
-;; debug (bug identify?).
-;;
-;; So, I'll need to implement stream processing natively, but for that, I still
-;; need primitives.
-;;
-;; Cons cells sure look like a nice idea right about now...
-
-#_(def let (macro [bindings body]
-                (list (list (quote fn) (map first (partition 2 bindings)) body)
-                      (map second (partition 2 bindings)))))
 
 (def defn
   "a docstring!"
@@ -73,49 +9,20 @@
          (list def name
                (list (quote fn) name args body))))
 
-(defn adder
-  [a b]
-  (+ a b 1))
-
-(adder 4 5)
-
-(defn fact [n]
-  (if (= n 0)
-    1
-    (* n (fact (- n 1)))))
-
-(fact 0)
-(fact 5)
-
-(defn fib [n]
-  (if (< n 2)
-    n
-    (+ (fib (- n 1)) (fib (- n 2)))))
-
-(fib 1)
-(fib 9)
-
-(defn g [x]
-  (+ 1 x))
-
-(defn f [x]
-  (g x))
-
-(defn g [x]
-  (+ x 2))
-
-(f 3)
-
-(defn h [x]
-  (g x))
-
-(h 3)
+(def when
+  (macro [p body]
+    (list (quote if) p body)))
 
 (defn map [f]
   (fn [xs]
-    (recur (emit default (f (first xs))) (rest xs))))
+    (when (not (empty? xs))
+      (recur (emit default (f (first xs))) (rest xs)))))
 
-((map g) [1 2 3 4])
+(defn reduce [f]
+  (fn [acc xs]
+    (if (empty? xs)
+      acc
+      (recur (f acc (first xs)) (rest xs)))))
 
 (defn harmonic-mean [xs]
   (match (first (ground (happy-path xs)))
