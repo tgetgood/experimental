@@ -28,9 +28,11 @@ initenv = hashmap(
         symbol("emit"), PrimitiveMacro(xprlemit),
         symbol("default"), default,
         symbol("recur"), PrimitiveMacro(xprlrecur),
+        symbol("stream"), PrimitiveMacro(xprlstream),
 
         # Standard library
         # Most of these should be bootstrapped
+        symbol("not"), PrimitiveFn(!),
         symbol("+"), PrimitiveFn(+),
         symbol("-"), PrimitiveFn(-),
         symbol("*"), PrimitiveFn(*),

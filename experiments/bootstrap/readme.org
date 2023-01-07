@@ -164,3 +164,21 @@ know what I want the language to do.
 
    This is very static, and semantically it is, which is the point. The dynamism
    is a topic for another day.
+
+
+* Limitations of the current implementation
+  These are indexed by time they occur to me
+
+** [2023-01-04 Wed 14:57]
+   Functions can return multiple values, but only the first one is "normally"
+   received.
+
+   Wrapping a function call in the `stream` macro collects all of those values
+   into a stream.
+
+   But that has to be done statically. You can't call a function and then later
+   call `stream` on it to get the "rest" of the values.
+
+   Multiple emissions should block until someone wants to read them. That will
+   save computational work by applying backpressure to unread results, but more
+   importantly it will let us treat multiple returns as a "value".

@@ -2,7 +2,7 @@
 
 (def dispatch-table
     {\[ (read-coll Vector)
-     \{ (read-coll FiniteMap)})
+     \{ (read-coll Map)})
 
 (defn read [until stream]
   (let [stream (drop-while whitespace? stream)

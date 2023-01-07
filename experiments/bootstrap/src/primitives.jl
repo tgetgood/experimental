@@ -1,9 +1,32 @@
-##### Interpreter internals
-
-struct ModEnv
-    env
-    val
+function set_recursor(env, f)
+    assoc(env, recursym, f)
 end
+
+function recursor(env, args)
+    r = get(env, recursym, nil)
+    @assert r !== nil "Can only recur within a function body"
+    apply(env, r, args)
+end
+
+function set_emit(env, emit)
+    assoc(env, emitsym, emit)
+end
+
+function emitter(env)
+    get(env, emitsym)
+end
+
+function argemit(env, c)
+    return function(ch, v)
+        if ch == default
+            put!(c, v)
+        else
+            emitter(env)(ch, v)
+        end
+    end
+end
+
+##### Interpreter internals
 
 struct Fn
     name
@@ -72,7 +95,7 @@ function xprldef(env, args)
         form = first(args)
     end
 
-    body = eval_stream(env, form)
+    body = eval_async(env, form)
     if body !== nothing
         env = extend(env, sym, body)
         if doc !== nothing
@@ -85,10 +108,17 @@ function xprldef(env, args)
 end
 
 function xprlif(env, args)
-    if eval_async(env, first(args)) === true
+    p = eval_async(env, first(args))
+    if p === true
         eval(env, first(rest(args)))
+    elseif count(args) == 3
+        if p === false
+            eval(env, first(rest(rest(args))))
+        else
+            @assert false "Only boolean values can be used as predicates."
+        end
     else
-        eval(env, first(rest(rest(args))))
+        return nothing
     end
 end
 
@@ -116,14 +146,15 @@ function wire(env, args)
     eval(set_emit(env, emit), body)
 end
 
-function emit(env, ch::Keyword, v)
+function emit(env, ch, v)
+    key = eval_async(env, ch)
     val = eval_async(env, v)
     if val !== nothing
-        emitter(env)(ch, val)
+        emitter(env)(key, val)
     end
 end
 
-function emit(env, ch::Keyword, v, more...)
+function emit(env, ch, v, more...)
     @assert length(more) % 2 == 0 "emit requires an even number of arguments"
 
     e = emitter(env)
@@ -137,11 +168,13 @@ end
 # for each key, each value of the corresponding vector is emitted individually
 # and in order.
 function emit(env, m::Map)
-    for e in m
+    while !emptyp(m)
+        e = first(m)
         k = e.key
-        for v in m.value
+        for v in e.value
             emit(env, k, v)
         end
+        m = rest(m)
     end
 end
 
@@ -165,13 +198,34 @@ end
 
 function xprlrecur(env, args)
     a1 = first(args)
+    println(get(env, emitsym))
     if first(a1) == emitsym
-        emitargs = eval_stream(env, rest(a1))
-        if emitargs !== nothing
-            emit(env, emitargs...)
-        end
+        emitargs = eval_seq_async(env, rest(a1))
+
+        emit(env, emitargs...)
         args = rest(args)
     end
 
-    recursor(env)(env, args)
+    recursor(env, args)
+end
+
+function debug_arg_emit(env, s)
+    return function(ch, v)
+        if ch == default
+            put!(s, v)
+        else
+            emitter(env)(ch, v)
+        end
+    end
+end
+
+function xprlstream(env, args)
+    body = first(args)
+
+    s = emptystream()
+    @async emitter(env)(default, s)
+
+    evenv = set_emit(env, debug_arg_emit(env, s))
+
+    eval(evenv, body)
 end
