@@ -1,0 +1,99 @@
+;; TODO: Capture line/column numbers of forms if they're read from a file.
+
+(defn coll-reader [type]
+  (fn [env stream _]
+    ((fn [coll stream]
+       ;; REVIEW: `:sync` might be a bad name. I mean run `read` to completion
+       ;; and get these values. Assumes at most one of each.
+       (let [{:sync [form stream] :as read-result}
+             (read env stream (end-char type))]
+         (if (cut? read-result)
+           (emit :form coll :stream (rest tail))
+           ;; If `form` closes before emitting a value, `conj` will return
+           ;; `coll` (assuming that did emit a value).
+           (recur (conj coll form) tail))))
+     (empty type) stream)))
+
+(defn list-reader [env stream _]
+  ;; HACK: Necessary because we're not recursing with a stack like lisp, but
+  ;; doing everything from the tail. Cons cells don't make a lot of sense in
+  ;; this context. They're still nice for building code via macros. Use should
+  ;; give me a stronger opinion
+  (let [{:keys [form stream] ((coll-reader Vector) stream _)}]
+    (emit :form (tolist form) :stream stream)))
+
+(defn discard-reader [env stream until]
+  (let [{:sync [form stream]} (read env stream until)]
+    ;; We've "caught" `:form` above, so it will not be reemitted.
+    (emit {:stream [stream]})))
+
+(def indirect-dispatch-chars
+  {\_ discard-reader
+   \{ (coll-reader Set)})
+
+(defn indirect-dispatch [env stream until]
+  ((get indirect-dispatch-chars (first stream)
+        (constantly (emit :error (cat "unreadable char: " (first stream)))))
+   env stream until))
+
+(defn comment-reader [_ stream _]
+  (->> stream
+       (drop-while (comp not linebreak?))
+       (drop-while linebreak?)
+       (emit :stream)))
+
+(defn string-reader [_ stream _]
+  ;; REVIEW: Has someone come up with an elegant way to deal with unicode?
+  ;; Strings should be trees. Unicode chars should be tree encoded so that all
+  ;; languages can be stored in roughly equal (and reasonable) space in memory
+  ;; without compression.
+  ;;
+  ;; TODO: Someday
+  )
+
+(def dispatch-chars
+  {\# indirect-dispatch
+   \[ (coll-reader Vector)
+   \{ (coll-reader Map)
+   \( list-reader
+   \; comment-reader
+   \" string-reader})
+
+
+(defn read-symbol [env token]
+  (let [s (symbol (split token "/"))]
+    ;; REVIEW: Looking up symbols at read time helps find errors early which
+    ;; seems like the right thing to do. The environment in which the form will
+    ;; be evaluated *should* be the environment in which it's read. Barring
+    ;; macro weirdness.
+    ;;
+    ;; But will this work with compilation?
+    ;;
+    ;; Crazy idea: What if `def` is just a reader macro?
+    (if (lookup env s)
+      s
+      (emit :error (cat "symbol " (str s) " not defined.")))))
+
+(defn interpret-token [env token]
+  (if (= \: (first token))
+    (read-keyword (rest token))
+    (match (ground (parse-number token))
+           [:error _]  (read-symbol env token)
+           [default n] n)))
+
+(defn token-break [until]
+  (fn [c]
+    (or (whitespace? c) (delimiter? c) (= c until))))
+
+(defn token-reader [env stream until]
+  (let [[token stream] (split-with (token-break until) stream)]
+    (interpret-token env token)))
+
+(defn read [env stream until]
+  (let [stream (drop-while whitespace? stream)
+        c      (first stream)]
+    (when (not= until c)
+      ((get dispatch-table c token-reader) env stream until))))
+
+(defn read [env stream]
+  (read env stream :eof))
