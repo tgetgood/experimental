@@ -25,7 +25,7 @@
 (defn discard-reader [env stream until]
   (let [{:sync [form stream]} (read env stream until)]
     ;; We've "caught" `:form` above, so it will not be reemitted.
-    (emit {:stream [stream]})))
+    (emit :stream stream)))
 
 (def indirect-dispatch-chars
   {\_ discard-reader
@@ -69,7 +69,7 @@
     ;;
     ;; But will this work with compilation?
     ;;
-    ;; Crazy idea: What if `def` is just a reader macro?
+    ;; Crazy idea: What if `def` is just a reader macro? #!(fn id [x] x)
     (if (lookup env s)
       s
       (emit :error (cat "symbol " (str s) " not defined.")))))

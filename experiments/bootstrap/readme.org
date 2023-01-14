@@ -165,7 +165,31 @@ know what I want the language to do.
    This is very static, and semantically it is, which is the point. The dynamism
    is a topic for another day.
 
+** (Human) Language Agnostic syntax
+   This is a long term goal that I've let slip recently.
 
+   To the computer, everything is a machine word at the end of the day, so why
+   does it matter whether a symbol is in English, Japanese, or Arabic? Whether
+   the reader runs left to right, top to bottom, or right to left? It doesn't,
+   it's just the bias built into (the American dominated) computer culture.
+
+   Internally, a form like (fn [x y z] (conj x (g y z))) can be read in as
+   ($0 [$1 $2 $3] ($4 $1 ($5 $2 $3))), with a translation table mapping those
+   normalised names to both code forms and symbols. If all symbols and keywords
+   are stored this way and translated on read/print, then we can swap one
+   translation table for another and "translate" the program.
+
+   The translations won't be good, but what's far more important is that we can
+   *transliterate* the program, which makes it accessible to people who can't
+   read the Roman alphabet. Of course they'll need translated documentation to
+   understand what's going on.
+
+   This scheme can work reasonably well, but will be an immense amount of
+   work. The names of symbols and keywords are semantic: they have meaning to
+   the programmer that cannot be defined fully by their context of use
+   (syntax). So the translation can only be meaningfully performed by someone
+   who understands the code. Maybe machine translation can do well enough to
+   reduce the workload to something manageable.
 * Limitations of the current implementation
   These are indexed by time they occur to me
 

@@ -198,7 +198,6 @@ end
 
 function xprlrecur(env, args)
     a1 = first(args)
-    println(get(env, emitsym))
     if first(a1) == emitsym
         emitargs = eval_seq_async(env, rest(a1))
 
