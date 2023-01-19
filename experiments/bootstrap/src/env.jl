@@ -60,7 +60,7 @@ function setmeta(meta::Map, key, value)
     assoc(meta, key, value)
 end
 
-function withmeta(env, sym, key, value)
+function updatemeta(env, sym, key, value)
     update(env, meta, update, sym, setmeta, key, value)
 end
 

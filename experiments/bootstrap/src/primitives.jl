@@ -99,7 +99,7 @@ function xprldef(env, args)
     if body !== nothing
         env = extend(env, sym, body)
         if doc !== nothing
-            env = withmeta(env, sym, keyword("doc"), doc)
+            env = updatemeta(env, sym, keyword("doc"), doc)
         end
 
         emitter(env)(keyword("env"), env)

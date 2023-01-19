@@ -1,8 +1,12 @@
 abstract type Sexp end
 
 struct MetaExpr <: Sexp
-    metadata::Sexp
-    content::Sexp
+    metadata
+    content
+end
+
+function string(m::MetaExpr)
+    "^"*string(m.metadata)*" "*string(m.content)
 end
 
 function withmeta(f, m)
