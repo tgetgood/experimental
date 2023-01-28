@@ -83,9 +83,9 @@ end
 
 # Test it out
 
-env = readfile(initenv, "../xprl/core.xprl")
+env = readfile(initenv, "../xprl/interpreter.xprl")
 env = readfile(env, "../xprl/temp.xprl")
 
-repl(env)
+#repl(env)
 
 #e2 = readfile(env, "../xprl/advent-2020-1.xprl")

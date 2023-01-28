@@ -1,22 +1,25 @@
-(defmacro eval [env form]
+(defn eval [env form]
   form)
 
-(defmacro eval [env ^Cable ch]
+(defn eval [env ^Cable ch]
   (first (default ch)))
 
-(defmacro eval [env ^List form]
+(defn eval [env ^List form]
   (if (empty? form)
     form
     (apply env (first form) (rest form))))
 
-(defmacro apply [env ^Fn f args]
+(defn apply [env ^Fn f args]
   )
 
 ;;;;; The core language
 
-(defmacro true [_ x y] x)
-(defmacro false [_ x y] y)
+(defmacro true [e x y] (eval e x))
+(defmacro false [e x y] (eval e y))
 (defmacro if [env p x y] ((eval env p) env x y))
+
+(defmacro quote [_ body]
+  body)
 
 ;; The following are circular, but once you break the cycle with an initial
 ;; builtin, you have a structure which holds itself up.
@@ -27,11 +30,10 @@
   ;; something up the chain that a new name has been declared. Nothing has to do
   ;; anything about that, but if it hits a top level loop (repl) it can change
   ;; the environment with which it recursively reenters itself.
-  (emit :env (extend env name (eval env body))))
+  (emit :env (extend env name (eval env body)) default name))
 
-(def defmacro
-  (macro [_ name & rest]
-    (list 'def name (list 'macro rest))))
+(defmacro defn [env name args body]
+  (eval env (list 'def name (list 'fn name args body))))
 
 (defmacro macro [env args body]
   ^Macro {:env env :slots args :body body})
@@ -39,5 +41,8 @@
 (defmacro fn [env args body]
   ^Fn {:env env :slots args :body body})
 
-(defmacro defn [name args body]
-  (list 'def name (list 'fn name args body)))
+(defmacro defmacro [env name args body]
+  (emit :env
+        (eval env (list 'def name (list 'macro args body)))
+        default
+        name))
