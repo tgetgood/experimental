@@ -230,6 +230,17 @@ Bootstrapping is going to be fun.
 
      I like that advice. Now who is Scott? Possibly Dana Scott: "Outline of a
      Mathematical Theory of Computation", 1970.
+   - [ ] Implementation Strategies for Mutable Value Semantics
+     Inspired by part of swift's design they appear to be trying to design a
+     language especially suited for compilers and optimisers that allows for
+     local reasoning without the performance costs of classical pure functional
+     languages.
+
+     I'm working at the same thing but from the opposite direction: starting
+     from easy to reason about and throwing away any assumption, habit, or idiom
+     that makes that hard to implement or optimise.
+
+     I'll bet there's a lot I can learn from this.
 * Languages to learn more about
   - Factor
   - Joy
