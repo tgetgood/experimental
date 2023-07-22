@@ -630,7 +630,7 @@ surface appear to be related at all. I think they are, but that might change.
 
     Notably this removes the need for a global name registry, or "phone book" by
     which to route messages through the system. Flubs have references (by value)
-    ot other flubs, and connect them together, so names are only for the
+    to other flubs, and connect them together, so names are only for the
     programmer's benefit. They resolve statically from the source itself (in
     context).
 
@@ -963,7 +963,7 @@ surface appear to be related at all. I think they are, but that might change.
     nothing, then we don't need to test `(even? nil)` because the computation
     just ends at `get`. We get a cheaper version of nil punning with no risk of
     using a null pointer because there is no null pointer. "nil" isn't a
-    thing. We return nothing, not "nothing".
+    thing. We don't return "nothing", we don't return anything.
 
     But what if `m` is a multimap and `(get m k)` returns multiple values?
 
@@ -1015,13 +1015,13 @@ surface appear to be related at all. I think they are, but that might change.
     development, the language might be a failure. I'm not really sure yet.
 *** The Myth of Synchoronicity
     What is the meaning of `async` in contemporary programming languages?
-    It's a negative, and so only makes sense in relation to that which it's
+    It's a negation, and so only makes sense in relation to that which it's
     negating. Is there such a thing as `sync` to give it meaning? I happen to
     think it's a relic of legacy and habit.
 
     What's a fully synchronous operation? Adding two fixnums? Well are the
     numbers in registers or being loaded from ram? Are they in cache? Is the
-    needed in memory address paged out to disk? Has GC paused the world?
+    needed memory address paged out to disk? Has GC paused the world?
 
     And don't forget pipelining, speculation, and out of order execution.
 
@@ -1069,8 +1069,8 @@ surface appear to be related at all. I think they are, but that might change.
 
     Say you have a pointer p to a struct {int32, int32, String} where we know
     that the second int is the length of the String (char array). The length of
-    the string, say n,  is \*(p+4) and the String itself is n bytes starting at
-    \*(p+8).
+    the string, say n,  is *(p+4) and the String itself is n bytes starting at
+    *(p+8).
 
     Now we're doing arithmetic with array indicies. So in this case we're
     treating array indicies as cardinal numbers (you can define arithmetic on
@@ -1078,9 +1078,9 @@ surface appear to be related at all. I think they are, but that might change.
 
     So why do real programmers start counting at zero? That's because if you're
     treating indicies as cardinal numbers, then you want the first thing (no
-    offset) to be \*(p+0).
+    offset) to be *(p+0).
 
-    Take Dijkstra's famous argument regarding for (i=0; i<N; i++) {.... This
+    Take Dijkstra's famous argument regarding for (i=0; i<N; i++) {...}. This
     basically avoids having to fiddle with end conditions when concatenating
     arrays. Again this is about computing indicies and offsets.
 
