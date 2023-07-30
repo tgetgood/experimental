@@ -1,11 +1,4 @@
-{:deps     {org.clojure/core.async             {:mvn/version "1.3.610"}
-            org.clojure/clojure                {:mvn/version "1.10.1"}
-            com.taoensso/timbre                {:mvn/version "5.1.2"}
-            org.lwjgl/lwjgl                    {:mvn/version "3.2.3"}
-            org.lwjgl/lwjgl$natives-linux      {:mvn/version "3.2.3"}
-            org.lwjgl/lwjgl-glfw               {:mvn/version "3.2.3"}
-            org.lwjgl/lwjgl-glfw$natives-linux {:mvn/version "3.2.3"}
-            org.lwjgl/lwjgl-vulkan             {:mvn/version "3.2.3"}
-            org.clojure/spec.alpha             {:mvn/version "0.2.187"}}
- :jvm-opts ["jvm" "polyglot"]
+{:deps     {org.clojure/core.async             {:mvn/version "1.6.673"}
+            org.clojure/clojure                {:mvn/version "1.11.1"}
+            com.taoensso/timbre                {:mvn/version "6.2.2"}}
  :paths    ["src"]}

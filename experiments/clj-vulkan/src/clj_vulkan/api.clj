@@ -3,11 +3,11 @@
             [clojure.string :as str]
             [clojure.walk :as walk]
             [clojure.xml :as xml])
-  (:import org.lwjgl.system.MemoryUtil
+  #_(:import org.lwjgl.system.MemoryUtil
            [org.lwjgl.vulkan KHRSurface KHRSwapchain VK10 VK11]))
 
 (def vulkan-classes
-  [org.lwjgl.vulkan.VK11
+  '[org.lwjgl.vulkan.VK11
    org.lwjgl.vulkan.VK10
    org.lwjgl.vulkan.KHRSurface
    org.lwjgl.vulkan.KHRSwapchain])
@@ -29,12 +29,12 @@
 
 (defn lwjgl-read-str [b]
   (-> b
-      MemoryUtil/memUTF8Safe
+      ;; MemoryUtil/memUTF8Safe
       (str/replace  #"[^a-zA-Z_]" "")
       (str/trim)))
 
 (def api-doc
-  (xml/parse (java.io.File. "vk.xml")))
+  (xml/parse (java.io.File. "vk-1.3.260.xml")))
 
 (defn lookup-error
   "Given a numeric Vulkan return code, returns the name of the error (or
@@ -177,7 +177,7 @@
 ;; allocator (I really hope I don't have to write a new one) so that it can
 ;; handle both cases.
 
-(defmacro wrap-enumerate [n]
+#_(defmacro wrap-enumerate [n]
   (let [fname    (name n)
         fqfn     (qualified-lwjgl-symbol fname)
         spec     (find-fn fname)
