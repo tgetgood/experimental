@@ -591,7 +591,7 @@ surface appear to be related at all. I think they are, but that might change.
 
     Where I take issue with this approach is the freedom of communication. Any
     unit A can send a message to any other unit B, so long as the programmer who
-    wrote A new a name which resolves to B at runtime. Names take the place of
+    wrote A knew a name which resolves to B at runtime. Names take the place of
     symbols in linked object code; locations which introduce a disconnect
     between what the programmer thinks they're saying and what the machine
     thinks the programmer said.
@@ -626,7 +626,7 @@ surface appear to be related at all. I think they are, but that might change.
     do its thing, and that thing cannot be overridden or perverted from the
     outside. But since the flub has no notion of where inputs come from or where
     outputs go, when viewed from above it is fully subordinate to those "higher"
-    flubs which decide how to networks the channels of "lower" flubs together.
+    flubs which decide how to network the channels of "lower" flubs together.
 
     Notably this removes the need for a global name registry, or "phone book" by
     which to route messages through the system. Flubs have references (by value)
@@ -649,7 +649,7 @@ surface appear to be related at all. I think they are, but that might change.
    that might mislead others — or you yourself — into thinking that these are
    real and important. Give them stupid names so that you can discuss them
    without ever forgetting that they're provisional and likely bound for the
-   chopping block.
+   dust bin of history.
 
    Note that Bateson said to use anglo saxon words for partially formed concepts
    and resist the urge to coin new greek or latin logisms. I like to use
@@ -665,7 +665,7 @@ surface appear to be related at all. I think they are, but that might change.
     system of language-editor-tools that could potentially replace both emacs
     and the web browser.
 *** Self sandboxing
-    If units of execution are permitted no side effect, no mutations, no
+    If units of execution are permitted no side effects, no mutations, no
     syscalls, no i/o except the arguments they recieve (as messages) and the
     messages they emit, then a runtime can look at (a subset of) a program and
     know what data can enter it, and where data leaving it might go.
@@ -942,7 +942,7 @@ surface appear to be related at all. I think they are, but that might change.
     It shouldn't matter. If we have control over where functions return, then
     `let` tells `get` send a value back to "here" (label?, call_cc()?), `get`
     then gets control and goes about its business. If it parks, `let` will be
-    none the wiser, so long as `get` passes on the corrent place to yield the
+    none the wiser, so long as `get` passes on the correct place to yield the
     eventual value.
 
     So if `get` finds a value to return that value finds its way back to the
