@@ -875,7 +875,7 @@ surface appear to be related at all. I think they are, but that might change.
 
     Cf. core.async
 *** Function, Proceedures, Coroutines, and Transducers
-    Are function a good fundamental unit for programming?
+    Are functions a good fundamental unit for programming?
 
     Can you guess what I think?
 
@@ -1136,4 +1136,4 @@ surface appear to be related at all. I think they are, but that might change.
 * Potentially Useful Reading
  - https://arxiv.org/abs/2206.01041
 * Copyright
-  © 2022 Thomas Getgood
+  © 2024 Thomas Getgood
