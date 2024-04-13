@@ -1134,6 +1134,5 @@ surface appear to be related at all. I think they are, but that might change.
  - The Art of the Metaobject Protocol
  - The Early History of Smalltalk
 * Potentially Useful Reading
- - https://arxiv.org/abs/2206.01041
 * Copyright
   © 2024 Thomas Getgood
