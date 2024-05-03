@@ -25,17 +25,17 @@ surface appear to be related at all. I think they are, but that might change.
 
     The universal bubble (lambda expressible, turing computable, recursively
     definable, &c.) is a mathematics of closed formal systems. They express the
-    notion of computation, but by being closed they prohibit communication.
+    notion of computation, but by being closed they proscribe communication.
 
     In the same paper in which Turing defined his automatic machines (1936) he
     also defined a class of machines which he called choice machines which
     communicate with a human operator. He showed that choice machines, by being
-    able to ask an arbitrary number of y/n questions are qualitatively more
+    able to ask an arbitrary number of yes/no questions are qualitatively more
     powerful than automatic machines (which we today call Turing machines). The
     gist of the argument is that the set of Turing machines is countable,
     whereas the set of choice machines is not.
 
-    It shouldn't be controversial that Turing computable is a small subset of
+    It shouldn't be controversial that Turing universal is a small subset of
     "can be done by modern electronic devices" — it was clearly stated by Turing
     before any such devices existed — but I've spent too much of my life going
     over this in bars late into the night. Read the Standford encyclopedia of
@@ -46,11 +46,12 @@ surface appear to be related at all. I think they are, but that might change.
     thinking about them. Our knowledge of communication is very poor in
     comparison. Except when it comes to telephony.
 
-    Hypothesis: We can build a pure functional language that has no side
-    effects — no I/O, no mutable references, &c. — except for a single primitive
-    `emit` which sends a message. We can then reconstruct a practical language
-    for real software by using a DSL to wire together these pure units into
-    networks (hypergraphs? simplicial complexes?).
+    Hypothesis: We can build a pure functional language that has no side effects
+    — no I/O, no mutable references, &c. — except for a single primitive `emit`
+    which sends a bundle of messages and can only be called as the final step of
+    a computation. We can then reconstruct a practical language for real
+    software by using a DSL to wire together these pure units into networks
+    (hypergraphs? simplicial complexes?).
 
     Conjecture: If such a language can be built, then it can be built from
     primitive recursive units wired into networks. Branching and recursion can
@@ -58,6 +59,236 @@ surface appear to be related at all. I think they are, but that might change.
     recursive functions without choice. This also has practical significance
     because primitive recursive functions are easy to prove correct (induction)
     and always halt if correct.
+*** Perspective: Special Relativity
+    - Note taken on [2022-09-24 Sat 18:47] \\
+      Originally dates [2020-05-12 Tue] in my notes
+    On an interstellar scale, consensus is not possible in any practical
+    fashion.
+
+    This is a trivial consequnece of special relativity. It is not only
+    possible, but necessary, that different observers will observe different
+    sequences of events. Those sequences will often contradict each other in the
+    short term, but both observers will nevertheless be correct.
+
+    So what can we do? Current solutions like paxos, raft, etc. work by builing
+    consensus via coordinated communication. They guarantee that eventually
+    everyone will agree, but they make no promises (because they can't) about
+    how long it will take for such consensus to arise.
+
+    Spanner, and other "reengineer the universe" style solutions build a frame
+    of coordinates that spans the entire planet and using atomic clocks and gps
+    impose a total order on all events happening on the earth. Again, this is a
+    form of consensus in the long run, with a blind spot trailing ever so
+    slightly into the past. If you're running a server in Singapore, and you are
+    sent messages from Sydney and London at about the same time (though
+    according to the atomic clocks, the London message was first) you'll
+    probably receive the packet from Sydney first, and so there will be an
+    interval of time in which you are inconsistent with the total ordering of
+    the system simply because messages travel at finite speed.
+
+    On the earth this isn't much of a problem, since that trailing blind spot is
+    from about a second ago to now. That's not much time. But what happens if we
+    expand the network to include the moon? Mars? The moon is over a second away
+    at the speed of light. Mars can be more than twenty minutes away. That means
+    that the trailing blind spot will be at least 45 minutes for a network
+    spanning the earth and mars if it only takes one round trip to agree to
+    things. If you have a spanner like system, you can broadcast and get best
+    effort consistency in 20 or so minutes, but you won't know they know until
+    at least one round trip.
+
+    Let's make it harder. Imagine we send a ship to another star. If that star
+    is 60 light years away, then as the ship travels, round trip time will
+    increase until it reaches 120 years. If you won't get acknowledgement of
+    delivery for over 100 years, then you may as well never get it. Concensus
+    becomes completely impossible, all that can be done is informing.
+
+    So instead of tcp, we'll simply need to send a continuous stream of data and
+    listen to one coming back.
+
+    Now imagine this ship comes back. It's own web will have diverged
+    significantly from ours, but because of the streaming updates back and forth
+    there will be cross links. Once the two webs are brought physically close
+    together it should be as if they were never apart. The network needs to be
+    amorphous in this sense that pieces can break off, evolve in isolation, and
+    then reconnect.
+
+    If the network is robust — at the highest level of content, not just at the
+    wiring level — to continuous changes in topology, then being connected all
+    the time will become a less pressing concern. Going through a tunnel
+    shouldn't break anything, being cut off from the outside world by censors
+    should be equivalent to a lag in updates, instead of the current situation
+    of only having access to anything when you find a hole in the firewall.
+
+*** Interpretation all the way down
+    | “To be is to do” —Socrates
+    | “To do is to be” —Jean-Paul Sartre
+    | “Do be do be do” —Frank Sinatra
+
+**** Notes adapted from [2020-01-06 Mon] on paper
+     Data is not a well defined term and I'm going to try and avoid using it for
+     the moment. Is this possible?
+
+     What is an inscription on a tablet? Let's call it a message for lack of a
+     better word. How do we know it's a message and not a natural phenomenon? or
+     an unlikely outcome of random noise? We don't. Intention comes right from
+     the start: a message is something intended to be read. Intended to convey
+     meaning. The author of a message meant something by it.
+
+     So we need another concept for an artifact — an inscription, a shape, a
+     sound, &c. — that *might* be a message, or might not. For now, let's call
+     this a text. Not a good word, but I've got nothing else; signal, sign,
+     etc. are loaded terms nowadays.
+
+     Can anything be a message? If so, do we even need a word for something that
+     might be one?
+
+     A message only exists if a producer and a receiver share enough context to
+     make communication possible.
+
+     So before we can have messages, we need agents with the intent to
+     communicate.
+
+     Two sentient agents can communicate. This is an observation, not a
+     definition.
+
+     But what does it mean to communicate with a machine?
+
+     If you send a message (from your point of view) to a machine and it behaves
+     in an expected manner, then you can say that the machine interpreted your
+     message correctly. Or maybe that with respect to that interpreter (machine),
+     your message is code.
+
+     A message that means something to someone is different from one which does
+     not.
+
+     We should likely relax this condition to say that if you send a message to a
+     machine and it does *something*, then it interpreted your message (somehow).
+
+     Correctness is not a notion applicable to communication in general.
+
+     Is correctness essential to the notion of code? The rationalist tradition
+     would say yes, after all the word 'code' orginally referred to a collection
+     of laws in old French (though prior to that, codex just means 'book' in
+     Latin).
+
+     Most computer code is not correct in the sense of being not even wrong. So I
+     think it's a mistake to equate computer code with formal systems of any kind
+     when thinking of practice.
+
+     What do we call a message that you can interpret meaningfully? Meaningful
+     (to you)?
+
+     It's important to consider that the meaning intended by the producer of a
+     message, and the meaning interpreted by the receiver need not have anything
+     to do with one another. In fact one end, or the other (or both?) might not
+     assign any meaning at all.
+
+     So Barthes put it too strong: the author isn't dead, they're just another
+     reader (of their own message).
+**** Theory
+     Data is the medium in which computation can occur.
+
+     A message which causes an interpreter to do something is code. That
+     something might be a side effect, or it might be a computation.
+
+     It's important to see that from this point of view, computation is just
+     another kind of effect we can have on the world. It is a form of doing. It
+     just has much nicer mathematical structure than most other kinds of effect.
+
+     That which is done by an interpreter, given a message, *is*, in some sense,
+     the meaning assigned to that message by that interpreter. Meaning is use.
+
+     Literal data are precisely those messages which pass through an interpreter
+     without causing it to do anything. Semantic roughage. Sort of. Think of the
+     machine that draws letters in the sand. There is a clear isomorphism
+     between input and output and so there is a sense in which unicode chars are
+     literal data, but equally a sense in which they are code. This is a point
+     for further consideration elsewhere.
+
+     For now, let's just consider literal data as a subset of (digital) data.
+
+     Notably, since literal data passes through an interpreter without causing it
+     to do anything in particular, literal data is not code, and so the
+     interpreter assigns no meaning to it.
+
+     (Literal) Data is purely syntactic. Semantics are external to it.
+
+     The fact of the existence of literal data says something about a shared
+     structure between the data and the interpreter which emits it unchanged.
+
+     Note that the meaning that the producer of code assigns to it does not
+     necessarily have anything to do with the meaning assigned to it by a given
+     interpreter (though it may be important to others).
+
+     A symbol, say `identity`, is a message that refers to a form, that is, to
+     another message `(fn [x] x)`.
+
+     A form which is intended to invoke a function referred to by a symbol, say
+     `(identity 1)`, indicates by the grammatical position of `identity` —
+     invocation position — that `identity` is in turn to be treated as an
+     interpreter.
+
+     (eval (identity 1)) <=> (apply (eval identity) (map eval [1]))
+
+     The repl is an interpreter that interprets some parts of messages as
+     interpreters and other parts as messages to those interpreters.
+
+     But this process must bottom out. At some level, messages must *be*
+     interpreters.
+
+     Put differently, messages, being data, are inert. S-expressions, being
+     *literal data* to the lisp reader are, furthermore, devoid of
+     meaning. Meaning is assigned to the sexps by `eval`, which is the most
+     important interpreter in a lisp.
+
+     Code by itself — be it a string, or a forest of sexps — does nothing, means
+     nothing. It is inert. It must be interpreted.
+
+     `eval` in lisp serves two distinct purposes. It provides the grammar of
+     lisp, which is to say that it decides which forms are the be considered
+     interpreters, and which messages, and it transforms inert code into an
+     active interpreter.
+
+     This initial spark is magical. It is the difference between computers and
+     all media that came before.
+
+     This vivification of inert code into a reactive mechanism is not akin to
+     compilation. A compiler is, in principle, a pure function that transforms
+     one representation of computer code (text, sexps, etc.) into another (byte
+     code, machine code, et al.).
+
+     Compilation is often part of the action which transforms text into a living
+     process, but it's not the magic.
+
+     I keep saying magic, but really it's rather banal. At some point, you reach
+     circuits which interpret messages directly into physical activity. You don't
+     need interpreters all the way down. It just looks that way to people raised
+     in modern platforms like the web.
+
+     Does `eval` have to be singular? Is there any reason to restrict the set of
+     meta-interpreters, the set of language defining interpreters, to a single
+     thing?
+
+     Why can't a single runtime platform accept messages in any format, so long
+     as those messages are tagged in some way such that the runtime can deduce
+     how to interpret them?
+
+     That's basically how linux deals with requests to execute a file, after
+     all.
+**** Practice
+     What I'm calling an interpreter might better be called an executor, but
+     interpretation has a meaning beyond Steele and Sussman's art.
+
+     The difference between compilers and interpreters, for our purposes, is that
+     compilers are pure functions, that is they are computations that operate in
+     and on data, whereas interpreters take action based on their input. Real
+     action in the (possibly digital) world.
+
+     In particular, a compiler itself needs to be interpreted, it's just a
+     program.
+
+     This is obfuscated because compilers are generally executables, which just
+     means that the hardware interprets them directly.
 *** Perspective: A Generalisation of Homoiconicity
     Let's start with a parable. One based on a [[https://news.ycombinator.com/item?id=11939851][true story]], but reinterpreted to
     suit my needs.
@@ -285,9 +516,8 @@ surface appear to be related at all. I think they are, but that might change.
      all. This would have been inconceivable in the past.
 
      Besides, ZFC is an ugly theory. You need choice to do many basic things, it
-     leaves the continuum unsettled, it's just not a satisfying theory by many
-     criteria. Assuming that it's too fundamental to be replaced is a failure of
-     imagination.
+     leaves the continuum unsettled, it's just unsatisfying.  Assuming that it's
+     too fundamental to be replaced is a failure of imagination.
 
      That said, future archaeologists will know that we used sets and maps
      and the rest and there will be books on the subject for historians of
@@ -359,228 +589,6 @@ surface appear to be related at all. I think they are, but that might change.
 
     This observation isn't new, but it's widely dismissed as irrelevant. I hope
     to convince you otherwise.
-*** Perspective: Special Relativity
-    - Note taken on [2022-09-24 Sat 18:47] \\
-      Originally dates [2020-05-12 Tue] in my notes
-    On an interstellar scale, consensus is not possible in any practical
-    fashion.
-
-    This is a trivial consequnece of special relativity. It is not only
-    possible, but necessary, that different observers will observe different
-    sequences of events. Those sequences will often contradict each other in the
-    short term, but both observers will nevertheless be correct.
-
-    So what can we do? Current solutions like paxos, raft, etc. work by builing
-    consensus via coordinated communication. They guarantee that eventually
-    everyone will agree, but they make no promises (because they can't) about
-    how long it will take for such consensus to arise.
-
-    Spanner, and other "reengineer the universe" style solutions build a frame
-    of coordinates that spans the entire planet and using atomic clocks and gps
-    impose a total order on all events happening on the earth. Again, this is a
-    form of consensus in the long run, with a blind spot trailing ever so
-    slightly into the past. If you're running a server in Singapore, and you are
-    sent messages from Sydney and London at about the same time (though
-    according to the atomic clocks, the London message was first) you'll
-    probably receive the packet from Sydney first, and so there will be an
-    interval of time in which you are inconsistent with the total ordering of
-    the system simply because messages travel at finite speed.
-
-    On the earth this isn't much of a problem, since that trailing blind spot is
-    from about a second ago to now. That's not much time. But what happens if we
-    expand the network to include the moon? Mars? The moon is over a second away
-    at the speed of light. Mars can be more than twenty minutes away. That means
-    that the trailing blind spot will be at least 45 minutes for a network
-    spanning the earth and mars if it only takes one round trip to agree to
-    things. If you have a spanner like system, you can broadcast and get best
-    effort consistency in 20 or so minutes, but you won't know they know until
-    at least one round trip.
-
-    Let's make it harder. Imagine we send a ship to another star. If that star
-    is 60 light years away, then as the ship travels, round trip time will
-    increase until it reaches 120 years. If you won't get acknowledgement of
-    delivery for over 100 years, then you may as well never get it. Concensus
-    becomes completely impossible, all that can be done is informing.
-
-    So instead of tcp, we'll simply need to send a continuous stream of data and
-    listen to one coming back.
-
-    Now imagine this ship comes back. It's own web will have diverged
-    significantly from ours, but because of the streaming updates back and forth
-    there will be cross links. Once the two webs are brought physically close
-    together it should be as if they were never apart. The network needs to be
-    amorphous in this sense that pieces can break off, evolve in isolation, and
-    then reconnect.
-
-    If the network is robust — at the highest level of content, not just at the
-    wiring level — to continuous changes in topology, then being connected all
-    the time will become a less pressing concern. Going through a tunnel
-    shouldn't break anything, being cut off from the outside world by censors
-    should be equivalent to a lag in updates, instead of the current situation
-    of only having access to anything when you find a hole in the firewall.
-
-*** Interpretation all the way down
-**** Notes adapted from [2020-01-06 Mon] on paper
-     Data is not a well defined term and I'm going to try and avoid using it for
-     the moment. Is this possible?
-
-     What is an inscription on a tablet? Let's call it a message for lack of a
-     better word. How do we know it's a message and not a natural phenomenon? or
-     an unlikely outcome of random noise? We don't. Intention comes right from
-     the start: a message is something intended to be read. Intended to convey
-     meaning. The author of a message meant something by it.
-
-     So we need another concept for an artifact — an inscription, a shape, a
-     sound, &c. — that *might* be a message, or might not. For now, let's call
-     this a text. Not a good word, but I've got nothing else; signal, sign,
-     etc. are loaded terms nowadays.
-
-     Can anything be a message? If so, do we even need a word for something that
-     might be one?
-
-     A message only exists if a producer and a receiver share enough context to
-     make communication possible.
-
-     So before we can have messages, we need agents with the intent to
-     communicate.
-
-     Two sentient agents can communicate. This is an observation, not a
-     definition.
-
-     But what does it mean to communicate with a machine?
-
-     If you send a message (from your point of view) to a machine and it behaves
-     in an expected manner, then you can say that the machine interpreted your
-     message correctly. Or maybe that with respect to that interpreter (machine),
-     your message is code.
-
-     A message that means something to someone is different from one which does
-     not.
-
-     We should likely relax this condition to say that if you send a message to a
-     machine and it does *something*, then it interpreted your message (somehow).
-
-     Correctness is not a notion applicable to communication in general.
-
-     Is correctness essential to the notion of code? The rationalist tradition
-     would say yes, after all the word 'code' orginally referred to a collection
-     of laws in old French (though prior to that, codex just means 'book' in
-     Latin).
-
-     Most computer code is not correct in the sense of being not even wrong. So I
-     think it's a mistake to equate computer code with formal systems of any kind
-     when thinking of practice.
-
-     What do we call a message that you can interpret meaningfully? Meaningful
-     (to you)?
-
-     It's important to consider that the meaning intended by the producer of a
-     message, and the meaning interpreted by the receiver need not have anything
-     to do with one another. In fact one end, or the other (or both?) might not
-     assign any meaning at all.
-
-     So Barthes put it too strong: the author isn't dead, they're just another
-     reader (of their own message).
-**** Theory
-     Data is the medium in which computation can occur.
-
-     A message which causes an interpreter to do something is code. That
-     something might be a side effect, or it might be a computation.
-
-     It's important to see that from this point of view, computation is just
-     another kind of effect we can have on the world. It is a form of doing. It
-     just has much nicer mathematical structure than most other kinds of effect.
-
-     That which is done by an interpreter, given a message, *is*, in some sense,
-     the meaning assigned to that message by an interpreter. Meaning is use.
-
-     Literal data are precisely those messages which pass through an interpreter
-     without causing it to do anything. Semantic roughage. Sort of. Think of the
-     machine that draws letters in the sand. There is a sense in which unicode
-     chars are literal data, but equally a sense in which they are code. This is
-     a point for further consideration elsewhere.
-
-     For now, let's just consider literal data as a subset of (digital) data.
-
-     Notably, since literal data passes through an interpreter without causing it
-     to do anything in particular, literal data is not code, and so the
-     interpreter assigns no meaning to it.
-
-     (Literal) Data is purely syntactic. Semantics are external to it.
-
-     The fact of the existence of literal data says something about a shared
-     structure between the data and the interpreter which emits it unchanged.
-
-     Note that the meaning that the producer of code assigns to it does not
-     necessarily have anything to do with the meaning assigned to it by a given
-     interpreter (though it may be important to others).
-
-     A symbol, say `identity`, is a message that refers to a form, that is, to
-     another message `(fn [x] x)`.
-
-     A form which is intended to invoke a function referred to by a symbol, say
-     `(identity 1)`, indicates by the grammatical position of `identity` —
-     invocation position — that `identity` is in turn to be treated as an
-     interpreter.
-
-     (eval (identity 1)) <=> (apply (eval identity) (map eval [1]))
-
-     The repl is an interpreter that interprets some parts of messages as
-     interpreters and other parts as messages to those interpreters.
-
-     But this process must bottom out. At some level, messages must *be*
-     interpreters.
-
-     Put differently, messages, being data, are inert. S-expressions, being
-     *literal data* to the lisp reader are, furthermore, devoid of
-     meaning. Meaning is assigned to the sexps by `eval`, which is the most
-     important interpreter in a lisp.
-
-     Code by itself — be it a string, or a forest of sexps — does nothing, means
-     nothing. It is inert. It must be interpreted.
-
-     `eval` in lisp serves two distinct purposes. It provides the grammar of
-     lisp, which is to say that it decides which forms are the be considered
-     interpreters, and which messages, and it transforms inert code into an
-     active interpreter.
-
-     This initial spark is magical. It is the difference between computers and
-     all media that came before.
-
-     This vivification of inert code into a reactive mechanism is not akin to
-     compilation. A compiler is, in principle, a pure function that transforms
-     one representation of computer code (text, sexps, etc.) into another (byte
-     code, machine code, et al.).
-
-     Compilation is often part of the action which transforms text into a living
-     process, but it's not the magic.
-
-     I keep saying magic, but really it's rather banal. At some point, you reach
-     circuits which interpret messages directly into physical activity. You don't
-     need interpreters all the way down. It just looks that way to people raised
-     in modern platforms like the web.
-
-     Does `eval` have to be singular? Is there any reason to restrict the set of
-     meta-interpreters, the set of language defining interpreters, to a single
-     thing?
-
-     Why can't a single runtime platform accept messages in any format, so long
-     as those messages are tagged in some way such that the runtime can deduce
-     how to interpret them?
-**** Practice
-     What I'm calling an interpreter might better be called an executor, but
-     interpretation has a meaning beyond Steele and Sussman's art.
-
-     The difference between compilers and interpreters, for our purposes, is that
-     compilers are pure functions, that is they are computations that operate in
-     and on data, whereas interpreters take action based on their input. Real
-     action in the (possibly digital) world.
-
-     In particular, a compiler itself needs to be interpreted, it's just a
-     program.
-
-     This is obfuscated because compilers are generally executables, which just
-     means that the operating system knows how to interpret them.
 *** Holons and Holarchy
     On the surface this system looks a lot like smalltalk, and that's not
     accidental.
@@ -591,7 +599,7 @@ surface appear to be related at all. I think they are, but that might change.
 
     Where I take issue with this approach is the freedom of communication. Any
     unit A can send a message to any other unit B, so long as the programmer who
-    wrote A new a name which resolves to B at runtime. Names take the place of
+    wrote A knew a name which resolves to B at runtime. Names take the place of
     symbols in linked object code; locations which introduce a disconnect
     between what the programmer thinks they're saying and what the machine
     thinks the programmer said.
@@ -626,11 +634,11 @@ surface appear to be related at all. I think they are, but that might change.
     do its thing, and that thing cannot be overridden or perverted from the
     outside. But since the flub has no notion of where inputs come from or where
     outputs go, when viewed from above it is fully subordinate to those "higher"
-    flubs which decide how to networks the channels of "lower" flubs together.
+    flubs which decide how to network the channels of "lower" flubs together.
 
     Notably this removes the need for a global name registry, or "phone book" by
     which to route messages through the system. Flubs have references (by value)
-    ot other flubs, and connect them together, so names are only for the
+    to other flubs, and connect them together, so names are only for the
     programmer's benefit. They resolve statically from the source itself (in
     context).
 
@@ -649,7 +657,7 @@ surface appear to be related at all. I think they are, but that might change.
    that might mislead others — or you yourself — into thinking that these are
    real and important. Give them stupid names so that you can discuss them
    without ever forgetting that they're provisional and likely bound for the
-   chopping block.
+   dust bin of history.
 
    Note that Bateson said to use anglo saxon words for partially formed concepts
    and resist the urge to coin new greek or latin logisms. I like to use
@@ -665,7 +673,7 @@ surface appear to be related at all. I think they are, but that might change.
     system of language-editor-tools that could potentially replace both emacs
     and the web browser.
 *** Self sandboxing
-    If units of execution are permitted no side effect, no mutations, no
+    If units of execution are permitted no side effects, no mutations, no
     syscalls, no i/o except the arguments they recieve (as messages) and the
     messages they emit, then a runtime can look at (a subset of) a program and
     know what data can enter it, and where data leaving it might go.
@@ -867,7 +875,7 @@ surface appear to be related at all. I think they are, but that might change.
 
     Cf. core.async
 *** Function, Proceedures, Coroutines, and Transducers
-    Are function a good fundamental unit for programming?
+    Are functions a good fundamental unit for programming?
 
     Can you guess what I think?
 
@@ -942,7 +950,7 @@ surface appear to be related at all. I think they are, but that might change.
     It shouldn't matter. If we have control over where functions return, then
     `let` tells `get` send a value back to "here" (label?, call_cc()?), `get`
     then gets control and goes about its business. If it parks, `let` will be
-    none the wiser, so long as `get` passes on the corrent place to yield the
+    none the wiser, so long as `get` passes on the correct place to yield the
     eventual value.
 
     So if `get` finds a value to return that value finds its way back to the
@@ -963,7 +971,7 @@ surface appear to be related at all. I think they are, but that might change.
     nothing, then we don't need to test `(even? nil)` because the computation
     just ends at `get`. We get a cheaper version of nil punning with no risk of
     using a null pointer because there is no null pointer. "nil" isn't a
-    thing. We return nothing, not "nothing".
+    thing. We don't return "nothing", we don't return anything.
 
     But what if `m` is a multimap and `(get m k)` returns multiple values?
 
@@ -1015,13 +1023,13 @@ surface appear to be related at all. I think they are, but that might change.
     development, the language might be a failure. I'm not really sure yet.
 *** The Myth of Synchoronicity
     What is the meaning of `async` in contemporary programming languages?
-    It's a negative, and so only makes sense in relation to that which it's
+    It's a negation, and so only makes sense in relation to that which it's
     negating. Is there such a thing as `sync` to give it meaning? I happen to
     think it's a relic of legacy and habit.
 
     What's a fully synchronous operation? Adding two fixnums? Well are the
     numbers in registers or being loaded from ram? Are they in cache? Is the
-    needed in memory address paged out to disk? Has GC paused the world?
+    needed memory address paged out to disk? Has GC paused the world?
 
     And don't forget pipelining, speculation, and out of order execution.
 
@@ -1069,8 +1077,8 @@ surface appear to be related at all. I think they are, but that might change.
 
     Say you have a pointer p to a struct {int32, int32, String} where we know
     that the second int is the length of the String (char array). The length of
-    the string, say n,  is \*(p+4) and the String itself is n bytes starting at
-    \*(p+8).
+    the string, say n,  is *(p+4) and the String itself is n bytes starting at
+    *(p+8).
 
     Now we're doing arithmetic with array indicies. So in this case we're
     treating array indicies as cardinal numbers (you can define arithmetic on
@@ -1078,9 +1086,9 @@ surface appear to be related at all. I think they are, but that might change.
 
     So why do real programmers start counting at zero? That's because if you're
     treating indicies as cardinal numbers, then you want the first thing (no
-    offset) to be \*(p+0).
+    offset) to be *(p+0).
 
-    Take Dijkstra's famous argument regarding for (i=0; i<N; i++) {.... This
+    Take Dijkstra's famous argument regarding for (i=0; i<N; i++) {...}. This
     basically avoids having to fiddle with end conditions when concatenating
     arrays. Again this is about computing indicies and offsets.
 
@@ -1126,6 +1134,5 @@ surface appear to be related at all. I think they are, but that might change.
  - The Art of the Metaobject Protocol
  - The Early History of Smalltalk
 * Potentially Useful Reading
- - https://arxiv.org/abs/2206.01041
 * Copyright
-  © 2022 Thomas Getgood
+  © 2024 Thomas Getgood
