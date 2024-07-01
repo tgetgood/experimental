@@ -634,7 +634,7 @@ It's a big project. Be patient. Even I'm not holding my breath.
    Information revolves around two parties sending messages across a
    channel. Information is an emergent property of this setup whereby one party
    informs the other. This informing crucially depends on shared context, an
-   establised message format.
+   establised message format. A shared view of the world.
 
    Information cannot exist unless two parties share a context and messages.
 
@@ -656,26 +656,30 @@ It's a big project. Be patient. Even I'm not holding my breath.
    Linear A might not prove incredibly difficult. Context is everything.
 
    So what is on a tablet inscribed in linear A if it's not information? A
-   *message* is inscribed on the tablet, but if no one knows how to read it,
-   then the meaning is lost and no *information* can pass between the author and
-   the reader across the intervening millenia.
+   *text* is inscribed on the tablet, but if no one knows how to read it,
+   then the meaning is lost. There is no *message*. No *information* can
+   pass between the author and the reader across the intervening millenia.
 
    When we program we send messages to machines. These messages take the form of
    source code, but what is source code? Does it contain information? If so,
    who, or what, is informed?
 
-   Let us call something that can execute code an interpreter (ignoring
-   compilers, direct execution, etc.). If you send a message to an interpreter,
-   and it does what you expected it to in response, then in some limited sense
-   it understood you or "got the message". You successfully informed the
-   interpreter. Let us say that with respect to this interpreter, your message
-   was code.
+   Let us call something that can receive messages and act on them an
+   interpreter. If you send a message to an interpreter, and it does what you
+   expected it to in response, then in some limited sense it understood you or
+   "got the message". You successfully informed the interpreter. Let us say that
+   with respect to this interpreter, this message is *code*.
 
-   A piece of text, or a blob of binary, or a group of dark spots on an optical
-   disk, are messages. Those messages can only be code in reference to a specific
-   interpreter. There need not exist an interpreter. A text file full of random
-   noise cannot be interpreted meaningfully. There is by definition (of
-   martin-lof randomness) no information to be had in the file.
+   Not every *text* is a *message* to every (or any) interpreter. Most
+   interpreters are only able to perceive a small subset of possible texts
+   (inputs) as messages.
+
+   A piece of writing, or a blob of binary, or a group of dark spots on an
+   optical disk, are texts. Those texts can only be called messages in reference
+   to specific interpreters or classes of interpreters. There need not exist an
+   interpreter. A text file full of random noise cannot be interpreted
+   meaningfully. There is by definition (of martin-lof randomness) no
+   information to be had in the file.
 
    At the same time, a given message might be different code to different
    interpreters; see whitespace and polyglot code.
@@ -683,8 +687,8 @@ It's a big project. Be patient. Even I'm not holding my breath.
    It's important to stress that a text file by itself is not code in this
    sense. We can recognise a clojure source file by the .clj extension and so we
    know to which interpreter to feed it, but that knowledge is communal and
-   contextual and can be lost. Without the interpreter the message is just a
-   message and can go the way of linear A.
+   contextual and can be lost. Without the interpreter the text is just a text
+   and can go the way of linear A.
 
    In fact even without the .clj extension, if the file has been misnamed, we
    can still recognise it as a clojure source file because we're familiar with
@@ -698,9 +702,9 @@ It's a big project. Be patient. Even I'm not holding my breath.
    abstract "clojure" that exists only in our collective cultural context, and
    not the =clojure= program itself.
 
-   And this brings us to the point where we can ask the real question: if
-   written text is a message, and a message that can be interpreted is code
-   (with respect to the interpreter), what then is data?
+   And this brings us to the point where we can ask the real question: if a
+   written text is a message, and that message can be interpreted as code (with
+   respect to an interpreter), what then is data?
 
    We talk about data all the time. Code is data. Data driven design. Data is
    better than functions are better than macros. Homoiconicity gives lisp the
@@ -716,11 +720,11 @@ It's a big project. Be patient. Even I'm not holding my breath.
    printer.
 
    The power of macros is that they operate on the AST, but they look and act as
-   if they were acting directly on the textual source code itself. This illusion
-   empowers programmers — who can only really "feel" their code in the textual
-   form that our editors manipulate — to extend our intuitions into the compiler
-   of the program, giving us further intuitive reach than is possible in a
-   language without homiconic syntactic macros.
+   if they were acting directly on the textual source code itself. This
+   transparency empowers programmers — who can only really "feel" their code in
+   the textual form that our editors manipulate — to extend our intuitions into
+   the compiler of the program, giving us further intuitive reach than is
+   possible in a language without homiconic syntactic macros.
 
    So if macros let us extend our intuitions about (static) source code into the
    runtime, why do we eschew them as a community? Why are functions better than
@@ -738,7 +742,7 @@ It's a big project. Be patient. Even I'm not holding my breath.
    To rephase again: the reader interprets a message (the source text) and the
    result is the sexp data structure which itself is a message. This second
    message is in turn interpreted by eval which is what we generally think of as
-   the lisp language.
+   "the language.
 
    Note that messages are no longer homoiconic across this chain of two
    interpreters. The text "(+ 2 2)" comes back as the text "4". Syntax quoting
@@ -787,9 +791,10 @@ It's a big project. Be patient. Even I'm not holding my breath.
    data is not well defined without reference to an interpreter.
 
    To confuse matters even more, a message can be code with respect to two
-   interpreters but only be data with respect to one of them. And the
-   interpretation of a message need have nothing to do with the intentions of
-   the author (cf. Roland Barthes 1967).
+   interpreters but only be data with respect to one of them.
+
+   Even more confusing, the interpretation of a message need have nothing to do
+   with the intentions of the author (cf. Roland Barthes 1967).
 
    Something decidedly less black and white than Barthes seems necessary to
    really understand this.
@@ -841,7 +846,7 @@ It's a big project. Be patient. Even I'm not holding my breath.
     100 years ago log tables were the primary means of computation. They were
     considered indispensible to the point that sci fi into the 60s still assumed
     space ships would have log tables that you would use to program the ship's
-    computer (Spaceman Jones).
+    computer (cf Spaceman Jones).
 
     Log tables have ceased to exist. Computers are so fast that we directly
     compute quantities from power series. Often without using logarithms at
@@ -850,9 +855,9 @@ It's a big project. Be patient. Even I'm not holding my breath.
     Besides, ZFC is an ugly, unsatisfying theory. Assuming that it's too
     fundamental to be replaced is a failure of imagination.
 
-    That said, future archaeologists will know that we used sets and maps
-    and the rest and there will be books on the subject for historians of
-    technology.
+    That said, barring cataclysmic loss, future archaeologists will know that we
+    used sets and maps and the rest and there will be books on the subject for
+    historians of technology.
 
     It's the trail of context that needs to be maintained. Universality is a
     myth. Gödel proved that in 1931, but it still hasn't sunk in.
@@ -920,16 +925,14 @@ It's a big project. Be patient. Even I'm not holding my breath.
 
    This observation isn't new, but it's widely dismissed as irrelevant. I hope
    to convince you otherwise.
-** Perspective: A Generalisation of Homoiconicity
-   Let's start with a parable. One based on a [[https://news.ycombinator.com/item?id=11939851][true story]], but reinterpreted to
-   suit my needs.
 ** Holons and Holarchy
    On the surface this system looks a lot like smalltalk, and that's not
    accidental.
 
    A program is a collection of programs (or computers) which communicate by
-   sending messages to each other. That has a fractal beauty that is most fully
-   realised (in my opinion) in the metaobject protocol of CLOS.
+   sending messages to each other. That has a fractal beauty, but we must
+   remember that all fractals have cutoffs and there is no way to realise
+   "everything is an X" in a real program.
 
    Where I take issue with this approach is the freedom of communication. Any
    unit A can send a message to any other unit B, so long as the programmer who
