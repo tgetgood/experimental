@@ -698,6 +698,9 @@ It's a big project. Be patient. Even I'm not holding my breath.
    “Do be do be do” —Frank Sinatra
 
 *** Notes adapted from [2020-01-06 Mon] on paper
+    - Note taken on [2024-07-01 Mon 11:54] \\
+      This largely repeats thoughts in the generalised homoiconity section. They
+      should be merged.
     Data is not a well defined term and I'm going to try and avoid using it for
     the moment. Is this possible?
 
@@ -744,9 +747,9 @@ It's a big project. Be patient. Even I'm not holding my breath.
     of laws in old French (though prior to that, codex just means 'book' in
     Latin).
 
-    Most computer code is not correct in the sense of being not even wrong. So I
-    think it's a mistake to equate computer code with formal systems of any kind
-    when thinking of practice.
+    Most computer code is not incorrect so much as not even wrong. So I think
+    it's a mistake to equate computer code with formal systems of any kind when
+    thinking of practice.
 
     What do we call a message that you can interpret meaningfully? Meaningful
     (to you)?
@@ -772,11 +775,11 @@ It's a big project. Be patient. Even I'm not holding my breath.
     the meaning assigned to that message by that interpreter. Meaning is use.
 
     Literal data are precisely those messages which pass through an interpreter
-    without causing it to do anything. Semantic roughage. Sort of. Think of the
-    machine that draws letters in the sand. There is a clear isomorphism
-    between input and output and so there is a sense in which unicode chars are
-    literal data, but equally a sense in which they are code. This is a point
-    for further consideration elsewhere.
+    without causing it to do anything beyond propagating the message. Semantic
+    roughage. Sort of. Think of the machine that draws letters in the sand.
+    There is a clear isomorphism between input and output and so there is a
+    sense in which unicode chars are literal data, but equally a sense in which
+    they are code. This is a point for further consideration elsewhere.
 
     For now, let's just consider literal data as a subset of (digital) data.
 
