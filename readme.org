@@ -625,7 +625,7 @@ It's a big project. Be patient. Even I'm not holding my breath.
 
     This is obfuscated because compilers are generally executables, which just
     means that the hardware interprets them somewhat more directly.
-** Perspective: Linguistic Archaeology
+** Perspective: A Generalisation of Homoiconicity
    Or how to organise your information so that it won't be forgotten.
 
    Is Linear A information? Rather is a text in Linear A information?  No. Not
@@ -838,6 +838,7 @@ It's a big project. Be patient. Even I'm not holding my breath.
    bring dead cultures back in a somewhat hollow form. To really understand a
    message, you need to keep a body of native speakers — or contextual natives —
    around. I don't know how long that can be possible.
+** Perspective: Linguistic Archaeology
 *** Example of losing context
     Sets, lists, maps (set theoretic functions) are very basic and seem like
     they will never go away. If that's not a universal basis on which to build a
