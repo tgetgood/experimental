@@ -455,176 +455,6 @@ It's a big project. Be patient. Even I'm not holding my breath.
    should be equivalent to a lag in updates, instead of the current situation
    of only having access to anything when you find a hole in the firewall.
 
-** Perspective: Interpretation all the way down
-   “To be is to do” —Socrates
-   “To do is to be” —Jean-Paul Sartre
-   “Do be do be do” —Frank Sinatra
-
-*** Notes adapted from [2020-01-06 Mon] on paper
-    Data is not a well defined term and I'm going to try and avoid using it for
-    the moment. Is this possible?
-
-    What is an inscription on a tablet? Let's call it a message for lack of a
-    better word. How do we know it's a message and not a natural phenomenon? or
-    an unlikely outcome of random noise? We don't. Intention comes right from
-    the start: a message is something intended to be read. Intended to convey
-    meaning. The author of a message meant something by it.
-
-    So we need another concept for an artifact — an inscription, a shape, a
-    sound, &c. — that *might* be a message, or might not. For now, let's call
-    this a text. Not a good word, but I've got nothing else; signal, sign,
-    etc. are loaded terms nowadays.
-
-    Can anything be a message? If so, do we even need a word for something that
-    might be one?
-
-    A message only exists if a producer and a receiver share enough context to
-    make communication possible.
-
-    So before we can have messages, we need agents with the intent to
-    communicate.
-
-    Two sentient agents can communicate. This is an observation, not a
-    definition.
-
-    But what does it mean to communicate with a machine?
-
-    If you send a message (from your point of view) to a machine and it behaves
-    in an expected manner, then you can say that the machine interpreted your
-    message correctly. Or maybe that with respect to that interpreter (machine),
-    your message is code.
-
-    A message that means something to someone is different from one which does
-    not.
-
-    We should likely relax this condition to say that if you send a message to a
-    machine and it does *something*, then it interpreted your message (somehow).
-
-    Correctness is not a notion applicable to communication in general.
-
-    Is correctness essential to the notion of code? The rationalist tradition
-    would say yes, after all the word 'code' orginally referred to a collection
-    of laws in old French (though prior to that, codex just means 'book' in
-    Latin).
-
-    Most computer code is not correct in the sense of being not even wrong. So I
-    think it's a mistake to equate computer code with formal systems of any kind
-    when thinking of practice.
-
-    What do we call a message that you can interpret meaningfully? Meaningful
-    (to you)?
-
-    It's important to consider that the meaning intended by the producer of a
-    message, and the meaning interpreted by the receiver need not have anything
-    to do with one another. In fact one end, or the other (or both?) might not
-    assign any meaning at all.
-
-    So Barthes put it too strong: the author isn't dead, they're just another
-    reader (of their own message).
-*** Theory
-    Data is the medium in which computation can occur.
-
-    A message which causes an interpreter to do something is code. That
-    something might be a side effect, or it might be a computation.
-
-    It's important to see that from this point of view, computation is just
-    another kind of effect we can have on the world. It is a form of doing. It
-    just has much nicer mathematical structure than most other kinds of effect.
-
-    That which is done by an interpreter, given a message, *is*, in some sense,
-    the meaning assigned to that message by that interpreter. Meaning is use.
-
-    Literal data are precisely those messages which pass through an interpreter
-    without causing it to do anything. Semantic roughage. Sort of. Think of the
-    machine that draws letters in the sand. There is a clear isomorphism
-    between input and output and so there is a sense in which unicode chars are
-    literal data, but equally a sense in which they are code. This is a point
-    for further consideration elsewhere.
-
-    For now, let's just consider literal data as a subset of (digital) data.
-
-    Notably, since literal data passes through an interpreter without causing it
-    to do anything in particular, literal data is not code, and so the
-    interpreter assigns no meaning to it.
-
-    (Literal) Data is purely syntactic. Semantics are external to it.
-
-    The fact of the existence of literal data says something about a shared
-    structure between the data and the interpreter which emits it unchanged.
-
-    Note that the meaning that the producer of code assigns to it does not
-    necessarily have anything to do with the meaning assigned to it by a given
-    interpreter (though it may be important to others).
-
-    A symbol, say `identity`, is a message that refers to a form, that is, to
-    another message `(fn [x] x)`.
-
-    A form which is intended to invoke a function referred to by a symbol, say
-    `(identity 1)`, indicates by the grammatical position of `identity` —
-    invocation position — that `identity` is in turn to be treated as an
-    interpreter.
-
-    (eval (identity 1)) <=> (apply (eval identity) (map eval [1]))
-
-    The repl is an interpreter that interprets some parts of messages as
-    interpreters and other parts as messages to those interpreters.
-
-    But this process must bottom out. At some level, messages must *be*
-    interpreters.
-
-    Put differently, messages, being data, are inert. S-expressions, being
-    *literal data* to the lisp reader are, furthermore, devoid of
-    meaning. Meaning is assigned to the sexps by `eval`, which is the most
-    important interpreter in a lisp.
-
-    Code by itself — be it a string, or a forest of sexps — does nothing, means
-    nothing. It is inert. It must be interpreted.
-
-    `eval` in lisp serves two distinct purposes. It provides the grammar of
-    lisp, which is to say that it decides which forms are the be considered
-    interpreters, and which messages, and it transforms inert code into an
-    active interpreter.
-
-    This initial spark is magical. It is the difference between computers and
-    all media that came before.
-
-    This vivification of inert code into a reactive mechanism is not akin to
-    compilation. A compiler is, in principle, a pure function that transforms
-    one representation of computer code (text, sexps, etc.) into another (byte
-    code, machine code, et al.).
-
-    Compilation is often part of the action which transforms text into a living
-    process, but it's not the magic.
-
-    I keep saying magic, but really it's rather banal. At some point, you reach
-    circuits which interpret messages directly into physical activity. You don't
-    need interpreters all the way down. It just looks that way to people raised
-    in modern platforms like the web.
-
-    Does `eval` have to be singular? Is there any reason to restrict the set of
-    meta-interpreters, the set of language defining interpreters, to a single
-    thing?
-
-    Why can't a single runtime platform accept messages in any format, so long
-    as those messages are tagged in some way such that the runtime can deduce
-    how to interpret them?
-
-    That's basically how linux deals with requests to execute a file, after
-    all.
-*** Practice
-    What I'm calling an interpreter might better be called an executor, but
-    interpretation has a meaning beyond Steele and Sussman's art.
-
-    The difference between compilers and interpreters, for our purposes, is that
-    compilers are pure functions, that is they are computations that operate in
-    and on data, whereas interpreters take action based on their input. Real
-    action in the (possibly digital) world.
-
-    In particular, a compiler itself needs to be interpreted, it's just a
-    program.
-
-    This is obfuscated because compilers are generally executables, which just
-    means that the hardware interprets them somewhat more directly.
 ** Perspective: A Generalisation of Homoiconicity
    Or how to organise your information so that it won't be forgotten.
 
@@ -862,6 +692,176 @@ It's a big project. Be patient. Even I'm not holding my breath.
 
     It's the trail of context that needs to be maintained. Universality is a
     myth. Gödel proved that in 1931, but it still hasn't sunk in.
+** Perspective: Interpretation all the way down
+   “To be is to do” —Socrates
+   “To do is to be” —Jean-Paul Sartre
+   “Do be do be do” —Frank Sinatra
+
+*** Notes adapted from [2020-01-06 Mon] on paper
+    Data is not a well defined term and I'm going to try and avoid using it for
+    the moment. Is this possible?
+
+    What is an inscription on a tablet? Let's call it a message for lack of a
+    better word. How do we know it's a message and not a natural phenomenon? or
+    an unlikely outcome of random noise? We don't. Intention comes right from
+    the start: a message is something intended to be read. Intended to convey
+    meaning. The author of a message meant something by it.
+
+    So we need another concept for an artifact — an inscription, a shape, a
+    sound, &c. — that *might* be a message, or might not. For now, let's call
+    this a text. Not a good word, but I've got nothing else; signal, sign,
+    etc. are loaded terms nowadays.
+
+    Can anything be a message? If so, do we even need a word for something that
+    might be one?
+
+    A message only exists if a producer and a receiver share enough context to
+    make communication possible.
+
+    So before we can have messages, we need agents with the intent to
+    communicate.
+
+    Two sentient agents can communicate. This is an observation, not a
+    definition.
+
+    But what does it mean to communicate with a machine?
+
+    If you send a message (from your point of view) to a machine and it behaves
+    in an expected manner, then you can say that the machine interpreted your
+    message correctly. Or maybe that with respect to that interpreter (machine),
+    your message is code.
+
+    A message that means something to someone is different from one which does
+    not.
+
+    We should likely relax this condition to say that if you send a message to a
+    machine and it does *something*, then it interpreted your message (somehow).
+
+    Correctness is not a notion applicable to communication in general.
+
+    Is correctness essential to the notion of code? The rationalist tradition
+    would say yes, after all the word 'code' orginally referred to a collection
+    of laws in old French (though prior to that, codex just means 'book' in
+    Latin).
+
+    Most computer code is not correct in the sense of being not even wrong. So I
+    think it's a mistake to equate computer code with formal systems of any kind
+    when thinking of practice.
+
+    What do we call a message that you can interpret meaningfully? Meaningful
+    (to you)?
+
+    It's important to consider that the meaning intended by the producer of a
+    message, and the meaning interpreted by the receiver need not have anything
+    to do with one another. In fact one end, or the other (or both?) might not
+    assign any meaning at all.
+
+    So Barthes put it too strong: the author isn't dead, they're just another
+    reader (of their own message).
+*** Theory
+    Data is the medium in which computation can occur.
+
+    A message which causes an interpreter to do something is code. That
+    something might be a side effect, or it might be a computation.
+
+    It's important to see that from this point of view, computation is just
+    another kind of effect we can have on the world. It is a form of doing. It
+    just has much nicer mathematical structure than most other kinds of effect.
+
+    That which is done by an interpreter, given a message, *is*, in some sense,
+    the meaning assigned to that message by that interpreter. Meaning is use.
+
+    Literal data are precisely those messages which pass through an interpreter
+    without causing it to do anything. Semantic roughage. Sort of. Think of the
+    machine that draws letters in the sand. There is a clear isomorphism
+    between input and output and so there is a sense in which unicode chars are
+    literal data, but equally a sense in which they are code. This is a point
+    for further consideration elsewhere.
+
+    For now, let's just consider literal data as a subset of (digital) data.
+
+    Notably, since literal data passes through an interpreter without causing it
+    to do anything in particular, literal data is not code, and so the
+    interpreter assigns no meaning to it.
+
+    (Literal) Data is purely syntactic. Semantics are external to it.
+
+    The fact of the existence of literal data says something about a shared
+    structure between the data and the interpreter which emits it unchanged.
+
+    Note that the meaning that the producer of code assigns to it does not
+    necessarily have anything to do with the meaning assigned to it by a given
+    interpreter (though it may be important to others).
+
+    A symbol, say `identity`, is a message that refers to a form, that is, to
+    another message `(fn [x] x)`.
+
+    A form which is intended to invoke a function referred to by a symbol, say
+    `(identity 1)`, indicates by the grammatical position of `identity` —
+    invocation position — that `identity` is in turn to be treated as an
+    interpreter.
+
+    (eval (identity 1)) <=> (apply (eval identity) (map eval [1]))
+
+    The repl is an interpreter that interprets some parts of messages as
+    interpreters and other parts as messages to those interpreters.
+
+    But this process must bottom out. At some level, messages must *be*
+    interpreters.
+
+    Put differently, messages, being data, are inert. S-expressions, being
+    *literal data* to the lisp reader are, furthermore, devoid of
+    meaning. Meaning is assigned to the sexps by `eval`, which is the most
+    important interpreter in a lisp.
+
+    Code by itself — be it a string, or a forest of sexps — does nothing, means
+    nothing. It is inert. It must be interpreted.
+
+    `eval` in lisp serves two distinct purposes. It provides the grammar of
+    lisp, which is to say that it decides which forms are the be considered
+    interpreters, and which messages, and it transforms inert code into an
+    active interpreter.
+
+    This initial spark is magical. It is the difference between computers and
+    all media that came before.
+
+    This vivification of inert code into a reactive mechanism is not akin to
+    compilation. A compiler is, in principle, a pure function that transforms
+    one representation of computer code (text, sexps, etc.) into another (byte
+    code, machine code, et al.).
+
+    Compilation is often part of the action which transforms text into a living
+    process, but it's not the magic.
+
+    I keep saying magic, but really it's rather banal. At some point, you reach
+    circuits which interpret messages directly into physical activity. You don't
+    need interpreters all the way down. It just looks that way to people raised
+    in modern platforms like the web.
+
+    Does `eval` have to be singular? Is there any reason to restrict the set of
+    meta-interpreters, the set of language defining interpreters, to a single
+    thing?
+
+    Why can't a single runtime platform accept messages in any format, so long
+    as those messages are tagged in some way such that the runtime can deduce
+    how to interpret them?
+
+    That's basically how linux deals with requests to execute a file, after
+    all.
+*** Practice
+    What I'm calling an interpreter might better be called an executor, but
+    interpretation has a meaning beyond Steele and Sussman's art.
+
+    The difference between compilers and interpreters, for our purposes, is that
+    compilers are pure functions, that is they are computations that operate in
+    and on data, whereas interpreters take action based on their input. Real
+    action in the (possibly digital) world.
+
+    In particular, a compiler itself needs to be interpreted, it's just a
+    program.
+
+    This is obfuscated because compilers are generally executables, which just
+    means that the hardware interprets them somewhat more directly.
 ** Perspective: Entropy (Cybernetics)
    A message is a thing given or received. Being a message is orthogonal to the
    idea of information.
