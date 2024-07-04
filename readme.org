@@ -821,15 +821,17 @@ surface appear to be related at all. I think they are, but that might change.
     Software needs more Polya and less Plato, but we're a long ways off from
     that as yet.
 *** The Stack
-    The modern callstack and the prevalence of stack machines when defining
-    languages has its origin in Dijkstra's Notes on Structured Programming
-    (1970). (Cf. ALGOL 60, Interlisp-D, Forth,... Dijkstra didn't invent the use
-    of stacks, but rather the modern paradigm of stack traces).
+    Return stacks, parameter stacks, env stacks, etc. have their origin in the
+    poorly recorded prehistory of our field (cf ALGOL-60, Forth,
+    Interlisp-D,...). But the modern callstack and the prevalence of stack
+    machines when defining languages stem directly from Dijkstra's Notes on
+    Structured Programming (1970).
 
     Dijkstra's goal was to achieve a one to one correspondance between the text
     of the program and the instructions being executed in the hardware. He
     managed to do this with extreme elegance using just a stack and a couple of
-    counters. It signaled certain death for the goto statement.
+    counters. It signaled certain death for the goto statement. Knuth not
+    withstanding.
 
     And the stack works brilliantly for sequential, synchronous code. It works
     so well that stacks ops are part of the instruction set of modern chips, and
@@ -1075,10 +1077,10 @@ surface appear to be related at all. I think they are, but that might change.
     in this array, and we have to perform computations to find those addresses
     (which are really indicies).
 
-    Say you have a pointer p to a struct {int32, int32, String} where we know
-    that the second int is the length of the String (char array). The length of
-    the string, say n,  is *(p+4) and the String itself is n bytes starting at
-    *(p+8).
+    Say you have a pointer p to a struct {int32, int32, Char*} where we know
+    that the second int is the length of the String. The length of the string,
+    say n, is *(p+4) and the String itself is n bytes starting at the address
+    pointed to by *(p+8).
 
     Now we're doing arithmetic with array indicies. So in this case we're
     treating array indicies as cardinal numbers (you can define arithmetic on
@@ -1102,9 +1104,11 @@ surface appear to be related at all. I think they are, but that might change.
     As for Dijkstra's example, modern languages don't use indicies to walk
     arrays anymore. All significant languages now provide a facility based on
     R.S. Bird's constructive programming theory. That is they use fold,
-    reduce, iterators, whatever you want to call it. You should never be
+    reduce, iterators, transducers, whatever you want to call it. This modern
+    approach is not only higher level and easier to reason about, it's faster
+    because the simplicity makes new optimisations possible. You should never be
     walking over a list with for (i=0; i<N; i++), so Dijkstra's argument is
-    nowadays moot.
+    moot.
 
     Essentially, if you have a list of things, then they have an order, and
     that order is ordinal. You want the first, second, third, ... elements.
@@ -1126,8 +1130,8 @@ surface appear to be related at all. I think they are, but that might change.
     Only put data in lists if it has an order which is important in some
     way. If order is arbitrary or otherwise unimportant, use a set or a map.
 **** references
-     Dijkstra (find the essay)
-     Bird, constructive programming
+     Why Numbering Should Start at Zero —  Dijkstra
+     Lectures on Constructive Functional Programming — R. S. Bird (1989)
 * References
  - [[https://ia802307.us.archive.org/7/items/bitsavers_xeroxinternceManualOct1983_52302609/Interlisp_Reference_Manual_Oct_1983.pdf][Interlisp Reference Manual]]
  - [[https://dl.acm.org/doi/10.1145/592849.592858][Getting Erlang to Talk to the Outside World]]
