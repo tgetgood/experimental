@@ -137,6 +137,10 @@ know what I want the language to do.
    algrebras, etc.
 
    Think of =simplify= as symbolic math, and =approximate= as numerics.
+** Comparison
+   Comparison is a combination of logic and arithmetic. I don't know where it
+   should live in this current system. But clearly we can't have a functional
+   language without being able to perform comparisons.
 ** String Manipulation
    This should be reducible to list manipulation, but at the very least we'll
    need primitives for encoding/decoding ascii, utf, etc..
@@ -157,10 +161,8 @@ know what I want the language to do.
 
   What is the scheduler? Is it useful to think of it as an interpreter? It is a
   meta interpreter of sorts which sees the sending of messages as messages in
-  their own right. So it's a step up the reflective tower; a higher order
+  their own right? If so it's a step up the reflective tower; a higher order
   process, like a message passing macro.
-
-
 * The Language
 ** No Side Effects
    This isn't true of the program as a whole, obviously, but it is true of

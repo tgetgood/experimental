@@ -15,12 +15,12 @@ end
 
 initenv = hashmap(
     syms, hashmap(
-        # Lisp 101
+        # Bootstrapped Lisp (fexprs)
         symbol("def"), PrimitiveMacro(xprldef),
-        symbol("fn"), PrimitiveMacro(xprlfn),
-        symbol("quote"), PrimitiveMacro(xprlquote),
         symbol("macro"), PrimitiveMacro(xprlmacro),
-        symbol("if"), PrimitiveMacro(xprlif),
+        # symbol("fn"), PrimitiveMacro(xprlfn),
+        # symbol("quote"), PrimitiveMacro(xprlquote),
+        # symbol("if"), PrimitiveMacro(xprlif),
 
         # wires & streams
         symbol("ground"), PrimitiveMacro(ground),
@@ -40,6 +40,7 @@ initenv = hashmap(
         symbol("="), PrimitiveFn(==),
         symbol(">"), PrimitiveFn(>),
         symbol("<"), PrimitiveFn(<),
+
         symbol("list"), PrimitiveFn(list),
         symbol("get"), PrimitiveFn(get),
         symbol("contains?"), PrimitiveFn(containsp),

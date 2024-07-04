@@ -83,8 +83,8 @@ end
 
 # Test it out
 
-env = readfile(initenv, "../xprl/interpreter.xprl")
-env = readfile(env, "../xprl/temp.xprl")
+ env = readfile(initenv, "../xprl/interpreter.xprl")
+# env = readfile(env, "../xprl/temp.xprl")
 
 #repl(env)
 
