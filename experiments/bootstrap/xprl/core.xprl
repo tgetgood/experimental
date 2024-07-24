@@ -2,7 +2,6 @@
   (fn [coll]
     (first (rest coll))))
 
-
 (def defn
   "a docstring!"
   (macro [name args body]

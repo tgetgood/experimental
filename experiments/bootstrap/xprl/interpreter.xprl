@@ -1,43 +1,60 @@
-(defmacro eval [env form]
-  form)
+;; By starting with `def` and `macro` builtin, we can construct the rest of the
+;; system. These aren't special forms in the sense that they cannot be defined
+;; in the language (here are the definitions), but rather in the sense that we
+;; need to start with something builtin otherwise we have a circular set of definitions that don't quite line up.
 
-(defmacro eval [env ^Cable ch]
-  (first (default ch)))
+;; (defmacro def [env [name body]]
+;;   ;; `def` is local. This is similar in spirit to throw or longjmp and tells
+;;   ;; something up the chain that a new name has been declared. Nothing has to do
+;;   ;; anything about that, but if it hits a top level loop (repl) it can change
+;;   ;; the environment with which it recursively reenters itself.
+;;   (emit :env (extend env name (eval env body)) default name))
 
-(defmacro eval [env ^List form]
-  (if (empty? form)
-    form
-    (apply env (first form) (rest form))))
+;; (defmacro macro [env args body]
+;;   ^Macro {:env env :slots args :body body})
 
-(defmacro apply [env ^Fn f args]
-  )
+#_(def quote (macro [_ body] body))
+
+;; (def defmacro
+;;   (macro [env name args body]
+;;     (eval env (list (quote def) name (list (quote macro) args body)))))
+
+;; (defmacro true [e x y] (eval e x))
+;; (defmacro false [e x y] (eval e y))
+;; (defmacro if [env p x y] ((eval env p) env x y))
+
+;;;;;
+
+;; (defn eval [env form]
+;;   form)
+
+;; (defn eval [env ^Cable ch]
+;;   (first (default ch)))
+
+;; (defn eval [env ^List form]
+;;   (if (empty? form)
+;;     form
+;;     (apply env (first form) (rest form))))
+
+;; (defn apply [env ^Fn f args]
+;;   )
 
 ;;;;; The core language
-
-(defmacro true [_ x y] x)
-(defmacro false [_ x y] y)
-(defmacro if [env p x y] ((eval env p) env x y))
 
 ;; The following are circular, but once you break the cycle with an initial
 ;; builtin, you have a structure which holds itself up.
 
 ;; TODO: metadata (docstring, file location, etc.)
-(defmacro def [env [name body]]
-  ;; `def` is local. This is similar in spirit to throw or longjmp and tells
-  ;; something up the chain that a new name has been declared. Nothing has to do
-  ;; anything about that, but if it hits a top level loop (repl) it can change
-  ;; the environment with which it recursively reenters itself.
-  (emit :env (extend env name (eval env body))))
 
-(def defmacro
-  (macro [_ name & rest]
-    (list 'def name (list 'macro rest))))
 
-(defmacro macro [env args body]
-  ^Macro {:env env :slots args :body body})
+;; (defmacro defn [env name args body]
+;;   (eval env (list 'def name (list 'fn name args body))))
 
-(defmacro fn [env args body]
-  ^Fn {:env env :slots args :body body})
+;; (defmacro fn [env args body]
+;;   ^Fn {:env env :slots args :body body})
 
-(defmacro defn [name args body]
-  (list 'def name (list 'fn name args body)))
+;; (defmacro defmacro [env name args body]
+;;   (emit :env
+;;         (eval env (list 'def name (list 'macro args body)))
+;;         default
+;;         name))

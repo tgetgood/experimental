@@ -277,13 +277,25 @@ function readdispatch(stream, opts)
     end
 end
 
+function readmeta(stream, opts)
+    meta = read(stream, opts)
+    val = read(stream, opts)
+    if isa(meta, Map)
+        withmeta(val, meta)
+    else
+        withmeta(val, assoc(emptymap, meta, true))
+    end
+end
+
 dispatch = Dict(
     '(' => readlist,
     '[' => readvector,
     '"' => readstring,
     '{' => readmap,
     '#' => readdispatch,
-    ';' => readcomment
+    ';' => readcomment,
+    '^' => readmeta
+
 )
 
 delimiter = r"[({\[;]"

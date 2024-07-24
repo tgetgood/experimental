@@ -1255,61 +1255,61 @@ It's a big project. Be patient. Even I'm not holding my breath.
    Software needs more Polya and less Plato, but we're a long ways off from
    that as yet.
 ** The Stack
-   Return stacks, parameter stacks, env stacks, etc. have their origin in the
-   poorly recorded prehistory of our field (cf ALGOL-60, Forth,
-   Interlisp-D,...). But the modern callstack and the prevalence of stack
-   machines when defining languages stem directly from Dijkstra's Notes on
-   Structured Programming (1970).
+    Return stacks, parameter stacks, env stacks, etc. have their origin in the
+    poorly recorded prehistory of our field (cf ALGOL-60, Forth,
+    Interlisp-D,...). But the modern callstack and the prevalence of stack
+    machines when defining languages stem directly from Dijkstra's Notes on
+    Structured Programming (1970).
 
-   Dijkstra's goal was to achieve a one to one correspondance between the text
-   of the program and the instructions being executed in the hardware. He
-   managed to do this with extreme elegance using just a stack and a couple of
-   counters. It signaled certain death for the goto statement. Knuth not
-   withstanding.
+    Dijkstra's goal was to achieve a one to one correspondance between the text
+    of the program and the instructions being executed in the hardware. He
+    managed to do this with extreme elegance using just a stack and a couple of
+    counters. It signaled certain death for the goto statement. Knuth not
+    withstanding.
 
-   And the stack works brilliantly for sequential, synchronous code. It works
-   so well that stacks ops are part of the instruction set of modern chips, and
-   students leave university thinking that stacks are an inherent part of
-   programming languages.
+    And the stack works brilliantly for sequential, synchronous code. It works
+    so well that stacks ops are part of the instruction set of modern chips, and
+    students leave university thinking that stacks are an inherent part of
+    programming languages.
 
-   The problem, though, is that they suck at concurrency, especially in the
-   face of asynchronicity.
+    The problem, though, is that they suck at concurrency, especially in the
+    face of asynchronicity.
 
-   The problem is obvious if you ever worked in javascript pre ES6. It's
-   also apparent in Rust's red/blue function kerfuffle when you realise the
-   difference between red and blue is that one uses the stack and the other
-   uses a scheduler / event loop.
+    The problem is obvious if you ever worked in javascript pre ES6. It's
+    also apparent in Rust's red/blue function kerfuffle when you realise the
+    difference between red and blue is that one uses the stack and the other
+    uses a scheduler / event loop.
 
-   The program always needs to know where to go next, in particular functions
-   need to know where to return to, but do we need to store this information on
-   the stack?
+    The program always needs to know where to go next, in particular functions
+    need to know where to return to, but do we need to store this information on
+    the stack?
 
-   React is playing with the idea of virtualising the stack because when you
-   have hundreds of ui tasks going on asyncronously and you want to interrupt,
-   reorder, and resume them, when you need to modify or cancel them on the fly,
-   then you need a different data structure.
+    React is playing with the idea of virtualising the stack because when you
+    have hundreds of ui tasks going on asyncronously and you want to interrupt,
+    reorder, and resume them, when you need to modify or cancel them on the fly,
+    then you need a different data structure.
 
-   The early versions of Akka had a great hack to use the stack where is was
-   beneficial and then blow it away: an actor would proceed like a normal
-   function calling functions, until it hits a send call. Send would just build
-   the current continuation, and throw an exception containing that
-   continuation, the message, and the receiver. The scheduler catches that
-   exception, queues the message and loops back. I always admired the
-   cleverness of this approach.
+    The early versions of Akka had a great hack to use the stack where is was
+    beneficial and then blow it away: an actor would proceed like a normal
+    function calling functions, until it hits a send call. Send would just build
+    the current continuation, and throw an exception containing that
+    continuation, the message, and the receiver. The scheduler catches that
+    exception, queues the message and loops back. I always admired the
+    cleverness of this approach.
 
-   But concretely. I hypothesise that if we rethink the stack abstraction we
-   can have asyncronous code that looks synchronous. Async/await without the
-   keywords and dual nature.
+    But concretely. I hypothesise that if we rethink the stack abstraction we
+    can have asyncronous code that looks synchronous. Async/await without the
+    keywords and dual nature.
 
-   It should also help optimisers that want to reorder larger chunks of a
-   program, or automatic parallelisation.
+    It should also help optimisers that want to reorder larger chunks of a
+    program, or automatic parallelisation.
 
-   Cf. Interlisp's "spaghetti stack" (actually a tree), which was manipulable
-   as a first class data structure at runtime, allowing coroutining,
-   continuations, backtracking, and other control flow operations to be
-   implemented as library features. Try adding [[https://wiki.openjdk.org/display/loom/Main][coroutines to Java]]...
+    Cf. Interlisp's "spaghetti stack" (actually a tree), which was manipulable
+    as a first class data structure at runtime, allowing coroutining,
+    continuations, backtracking, and other control flow operations to be
+    implemented as library features. Try adding [[https://wiki.openjdk.org/display/loom/Main][coroutines to Java]]...
 
-   Cf. core.async
+    Cf. core.async
 ** Functions, Proceedures, Coroutines, and Transducers  :emission:receivers:
    Are functions a good fundamental unit for programming?
 

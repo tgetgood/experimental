@@ -16,6 +16,19 @@ function emitter(env)
     get(env, emitsym)
 end
 
+# Runs `f` with `cont` as the default continuation
+function default_emit(env, f, cont)
+    function emit(ch, v)
+        if ch == default
+            cont(v)
+        else
+            emitter(env)(ch, v)
+        end
+    end
+    f(set_emit(env, emit))
+end
+
+
 function argemit(env, c)
     return function(ch, v)
         if ch == default
@@ -70,20 +83,6 @@ function xprlmacro(env, args)
     emitter(env)(default, Macro(first(args), env, first(rest(args))))
 end
 
-function xprlquote(env, args)
-    emitter(env)(default, first(args))
-end
-
-function xprlfn(env, args)
-    if length(args) == 3
-        name, slots, body = args
-    else
-        slots, body = args
-        name = nil
-    end
-    emitter(env)(default, Fn(name, slots, env, body))
-end
-
 function xprldef(env, args)
     sym = first(args)
     args = rest(args)
@@ -99,26 +98,11 @@ function xprldef(env, args)
     if body !== nothing
         env = extend(env, sym, body)
         if doc !== nothing
-            env = withmeta(env, sym, keyword("doc"), doc)
+            env = updatemeta(env, sym, keyword("doc"), doc)
         end
 
         emitter(env)(keyword("env"), env)
         emitter(env)(default, sym)
-    end
-end
-
-function xprlif(env, args)
-    p = eval_async(env, first(args))
-    if p === true
-        eval(env, first(rest(args)))
-    elseif count(args) == 3
-        if p === false
-            eval(env, first(rest(rest(args))))
-        else
-            @assert false "Only boolean values can be used as predicates."
-        end
-    else
-        return nothing
     end
 end
 

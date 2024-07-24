@@ -9,33 +9,160 @@ know what I want the language to do.
   Running =repl(initenv)= will get you a *very* bare repl that will read
   commands until EOF (ctrl-d).
 
-* Todo
-  In no particular order
-  - [ ] Pass debug (trace) info around in exection environment
-  - [ ] sets
-  - [ ] GC friendly iteration
-    Currently =rest= returns a seq struct which retains a pointer to the head of
-    the thing being iterated.
+* Current problems
+  I've gotten off track, though the track was never very well defined.
 
-    Quick and dirty, & will OOM if we try and run anything with large event
-    streams.
-  - [ ] check symbol definition at read time
-    This is to push errors back to read time from run time.
+  - [X] Read metadata (^)
+  - [ ] Reader quote (')
+  - [ ] Move to fexprs for the language core
+    With fexprs, all of the "special forms" of lisp can be defined as env
+    macros.
 
-    They're the same right now, but that won't always be the case.
-  - [ ] streams
-    We have emission cables, but we still need input streams and a bridge from
-    the cables of one process to the streams of another.
-  - [ ] destructuring
-    useful by itself, obviously, but =match= is much less useful without it.
-  - [ ] match
-    Unification based pattern matching for messages on cables.
-  - [ ] Simple test runner
-  - [ ] debug utils
-    metacircular debugger, execution traces, anything that will help with the
-    pain of debugging as is.
-  - [ ] binary manipulation
-  - [ ] try to generate IR
+    I need a new name for these metaprocessors. "interpreter" is the word I've
+    been using, but it's too overloaded. The hierarchy is basically 1) macros
+    that can access the env and current continuations 2) "syntax" macros that
+    can postpone evaluation of their arguments by receiving unevaluated
+    arguments and returning an sexp which will be evaluated (but can't call
+    `eval` directly since they haven't an environment to pass to it 3) functions
+    (well this things I'm calling functions anyway. They're not mathematical
+    functions, more like ordered relations.
+
+    What I called syntax macros and functions above are really just restrictions
+    of full macros. Very convenient restrictions because the encapsulate
+    patterns that make code much easier to understand and work with.
+  - [ ] Scheduler based message passing
+    To be able to 1) return control to multiple places and 2) work steal, we
+    need a way to wrap work into tasks and queue them up.
+
+    The best way I can think of to do that at the moment is to have =emit= and
+    =recur= pass control to the scheduler along with a list of tasks. All the
+    scheduler will do initially is enqueue all but the first task and
+    immediately step into the first one.
+
+    The base continuation should also pass control to the scheduler, but with no
+    new tasks. That way any task which ends in =(emit)= or equivalent will
+    immediately lead to the next task being read off the queue and entered.
+
+    Similarly reading from streams that don't yet have values should park and
+    return control to the scheduler to go somewhere else.
+
+    We need a basic fairness criterion (like time waited) to prevent
+    starvation. But some tasks are more important, specifically tasks which only
+    provide values being waited upon. Maybe those events shouldn't be tasks, but
+    should execute immediately (and step into the waiting task?).
+
+    I still need to think about how to coordinate waiting vs ready tasks.
+  - [ ] Polymorphic dispatch (in xprl)
+  - [ ] Decide abount continuations in env
+    The continuation is part of the environment of a function. It's (normally) a
+    lexical construct in that control goes back to the caller. It can be
+    diverted for more exotic control flows, but code needs both an environment
+    and a continuation to be sensibly evaluated.
+
+    That said, I keep mutating the continuation too much. It seems like
+    excessive env manipulation, but maybe I just need a higher level interface
+    too it like `extend` for bindings.
+  - [ ] Bootstrap intensionality
+    You can define `def` as a macro. You can even define `macro` as a macro. The
+    problem is that this leads to cyclic references in the environment. If we
+    look at invocation as giving new names to existing quantites and definition
+    as situating a fragment of code (a syntactic contstruct, one of Witt's
+    pictures) into a context to give it meaning, then it quickly becomes
+    apparent that there must be a non-empty initial environment in order for any
+    expression to have meaning.
+
+    That initial environment must contain quantities defined by extension
+    (from the outside).
+
+    evaluation of a definition produces a structure (a value), but structures
+    themselves are defined by code. So we can't write the initial definition of
+    `macro` in "xprl in julia", unless we leave the entire semantics of data
+    extensional. And that's not acceptable for a language based on passing
+    values.
+
+    Except it might not be possible. I'll need to experiment with how far down I
+    can push intensionality, but at some point data must have a binary layout
+    whose shape and meaning are in my head, not the code.
+
+    Can every extensional definition be expressed as an external interpreter to
+    which we send messages?
+
+    I think that's the right way to look at it. Primitives are units of code
+    written in another language. There must be primitives, otherwise we'd have
+    Hilbert's program acheived.
+
+    So if every primitive is just code in another language which (presumably)
+    takes parameters passed from our language, is that not just an interpreter?
+
+    It doesn't need to be a full fledged =lli= type of interpreter. Just an
+    =imul= instruction is an interpreter that does one thing.
+
+    The goal of this task is to make every non intentional definition an
+    explicit message passing call to another interpreter (i.e. not =eval=). What
+    that will look like I still don't know.
+
+    One problem that comes to mind is that general interpreters need to be
+    sandboxed. Values passed to them must be allocated on read only pages,
+    syscalls should be spoofed, everything.
+
+    To start with, we'll need a trusted class of external interpreters and an
+    "unsafe" key to allow new interpreters into this trusted zone. Then we'll
+    need to hand write and verify a subset from which we can build the
+    sandboxing for general interpreters.
+* The Interpreters
+  If we're going to work with interpreters all the way down, then we'll need to
+  define a minimal set with which to have a useful language.
+** eval
+   This is pretty straight forward.
+** Constructors
+   ^Macro, ^Fn, tagged types.
+** Value Manipulation
+   All of the protocols of lists, vectors, maps, and sets are primitive
+   interpreters, just as =cons= was a necessary special form in lisp. Note that
+   contructors for values are not primitive, since list, map, et al. are just
+   implemented by (reduce conj ...).
+** Arithmetic
+   You can't compute much without arithmetic. We only need 3 arithmetic
+   primitives, call them =compute=, =simplify=, and =approximate=.
+
+   =compute= takes an sexp like (+ 7 9) and returns a structure of the form
+   ^Sum [7 9].
+
+   =approximate= takes a compute structure and an integer N, and returns a
+   rational number within 10^{-N} of the value of the compute structure.
+
+   =simplify= uses arithmetic identities and search heuristices to simplify
+   expressions. E.g. ^Sum [7 9] => 16, (derivative (fn [x] (* x x)) 'x) => (fn [x]
+   (* 2 x)), etc.  We can extend this with trignometry, calculus, various
+   algrebras, etc.
+
+   Think of =simplify= as symbolic math, and =approximate= as numerics.
+** Comparison
+   Comparison is a combination of logic and arithmetic. I don't know where it
+   should live in this current system. But clearly we can't have a functional
+   language without being able to perform comparisons.
+** String Manipulation
+   This should be reducible to list manipulation, but at the very least we'll
+   need primitives for encoding/decoding ascii, utf, etc..
+
+   Honestly, I still think that strings should be a loose tree structure. That
+   way going up from sentences, to paragraphs, is symmetrical to going down to
+   characters and partial code points. Something like RRB tries or Fibonnaci
+   heaps are what I'm going for.
+
+   We can probably get better memory packing by intelligently encoding subtrees
+   and thus make up for the "not a single linear slice of addresses" issue.
+* The Runtime
+  In theory =emit= sends a message directly to a channel (and thence to any
+  listeners on that channel).
+
+  In reality, we need to map interpretation of messages to hardware in a dynamic
+  fashion, so emission is mediated by queues and a scheduler.
+
+  What is the scheduler? Is it useful to think of it as an interpreter? It is a
+  meta interpreter of sorts which sees the sending of messages as messages in
+  their own right? If so it's a step up the reflective tower; a higher order
+  process, like a message passing macro.
 * The Language
 ** No Side Effects
    This isn't true of the program as a whole, obviously, but it is true of
