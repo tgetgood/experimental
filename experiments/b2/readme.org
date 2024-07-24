@@ -1,0 +1,30 @@
+#+title: A Less Academic Exercise
+
+The goal of this little experiment is to bootstrap a language which has no
+dependencies except a linux kernel.
+
+Of course the compiler will have dependencies, and I might use llvm for
+optimisation and producing machine code which brings in a boatload of
+dependecies.
+
+But I want a language with jit compilation and no dependency on libc (or
+anything)!
+
+Yeah, there's a contradiction.
+
+Think of the initial compiler and tooling as a scaffold which will (hopefully)
+be removed once the other bits can hold their own weight off the ground.
+
+The hardest part of this, pragmatically speaking, is the runtime. I can't write
+a runtime in anything except assembly since that would bring in dependencies,
+but the thought of writing a whole runtime in assembly is horrifying. I'll spend
+the next decade debugging it.
+
+So: the plan henceforth is the write a minimal runtime in a subset of the
+language which as yet has no compiler. That subset must be static in that it
+doesn't need any sort of runtime, but the minimal runtime implemented in it must
+support jit compilation and hot loading, (runtime) polymorphic dispatch,
+reference counting, and message passing based multithreading. Among other
+requirements.
+
+Doesn't that sound fun?
