@@ -1,1 +1,42 @@
 (ns rt)
+
+;;;;; Things that need to be defined:
+
+;;;; High level entry
+
+(def emit)
+
+;;;; Mechanics
+
+(def alloc)
+(def free)
+
+(def queue)
+(def push)
+(def pop)
+
+;; formats for messages
+
+;; memory format for continuation
+
+;; format for evaluation environment
+
+;;;; Interop and modularity:
+
+(def ccall)
+
+;; Some way to ensure we have the right value for a given symbol. Julia does a
+;; good job of this as far as linking to a specific .so at runtime, but we need
+;; to do better; the filename is no real indication of what you're getting for a
+;; given name.
+;;
+;; Of course, we're going to need a layer of faith at the bottom. We need to
+;; make syscalls, and talk to hardware, and those kernel level things are going
+;; to changing under our feet. Linux itself is good about not breaking the ABI,
+;; what about Vulkan implementations? other drivers? I have no idea.
+;;
+;; The long game is to bring that stuff itself under the controled import
+;; umbrella, but that will take some time. I guess we could approximate that by
+;; locking the runtime to hashes of basic imports, but that will cause some
+;; grief as world turns around us.
+(def resolve)

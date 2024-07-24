@@ -1,0 +1,64 @@
+(ns types)
+
+;; A binary spec is an interpretation of a bit string. It looks like:
+(def ex-type-spec
+  {:flag1 1
+   :flag2 1
+   :x     15
+   :y     15
+   ...})
+
+;; In the above example we break a 32 bit word into 2 boolean flags and 2 15 bit
+;; quantities named `x` and `y`.
+
+;; The names are there solely for reflection. Though maybe I'll add a way to
+;; access fields that way.
+
+;; N.B.: I'm assuming the map is ordered here. It's critical to know the order
+;; of bits, after all. So maybe we need a literal notation for alists. or just
+;; use lists...
+
+;; N.B.: also that the numbers in the map values are *bits, not bytes*. The
+;; `c-align` function below aligns on power of two byte boundaries as you would
+;; expect, but computes the actual values in bits.
+
+(c-align ex-type-spec)
+;; =>
+{:flag1    1
+ :padding1 7
+ :flag2    1
+ :padding2 7
+ :x        15
+ :padding3 1
+ :y        15
+ :padding4 17}
+
+;; It's more complicated than this, isn't it? This will work more or less by
+;; accident on little-endian architectures, if we want to interpret the bits as
+;; bytes and 15 bit quantities as truncated 16 bit quantities. That's not what
+;; we want for ffi: we want a set of carefully thought out compatible types.
+
+;; This effectively makes the dense wire format the "default" and the in memory
+;; layout something layered on top. This is intentional since we want to
+;; separate the inherent from the incidental.
+
+;; This is part of the "interpretation all the way down" theme: the only "raw
+;; data" are words of binary. Not ints or uints. A word can be interpreted as an
+;; int8 via (with-context {:type int8} 0b00101100) where int8 refers to a ??? ---
+;; An interpreter of eight bit quantities in two's complement encoding? But what
+;; would that interpreter return if not the same quantity? A tagged quantity I
+;; suppose...
+
+;;; basic value types
+
+(def int)
+(def float)
+(def keyword)
+(def string)
+
+(defn cstruct [spec]
+  (c-align spec))
+
+;;; basic collections
+
+(def cow-array)
