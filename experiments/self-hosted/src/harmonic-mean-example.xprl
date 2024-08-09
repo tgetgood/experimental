@@ -118,9 +118,9 @@
      match)
 
 ;; Up to this point it looks like we're just evaluating standard clojure
-;; code. That's because we haven't yet hit an `emit` yet. Emission points are
+;; code. That's because we haven't yet hit an `emit`. Emission points are
 ;; the first major divergence of xprl. Curiously `ground` and `match` come off
-;; as standard lispy constructs. `match` can proably be implemented as a macro,
+;; as standard lispy constructs. `match` can probably be implemented as a macro,
 ;; but I think ground has to have its claws in the runtime itself.
 
 =>
