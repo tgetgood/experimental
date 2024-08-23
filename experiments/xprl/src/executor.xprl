@@ -1,0 +1,23 @@
+(defμ emit [events]
+  (into (EventList) (map (fn [[ch msg]] [(resolve ch) msg])) events))
+
+;; Eventlist has special dispatch within the executor, invoking `pushngo`.
+;;
+;; Anything else goes straight to the `:return` continuation.
+
+(def executor
+  (accumulator
+   {:init []
+    :go (fn [stack]
+          (let [pushngo (fn [emission]
+                          (if (emission? emission)
+                            (if (= 1 (count emission))
+                              (exec (first emission))
+                              (emit {:state (pushall stack (rest emission))
+                                     :exec (first emission)}))
+                            ((resolve-ch :return emission) emission)))]
+            (with-channels {:emit pushngo}
+              (emit {:state (rest stack)
+                     :exec (first stack)}))))}))
+
+;; That doesn't quite make sense.

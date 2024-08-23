@@ -1,0 +1,80 @@
+;; This has been adapted from Kernel (Shutt 2010) to my assumptions.
+(def fn
+  ;; μ is akin to a first class macro. It's not quite the same since the value
+  ;; returned by a μ is not evaluated by default.
+  ;;
+  ;; A μ also has no access to the calling environment, only the environments in
+  ;; which its arguments were defined. So it's also not an fexpr.
+  ;;
+  ;; I don't quite know what it is, but it's a handy construct.
+  (μ [params body]
+     (μ [args]
+        (eval
+         (extend (env body) (destructuring-bind params (eval (env args) args)))
+         body))))
+
+(eval e (f x y))
+
+eval <- (f x y)^e
+
+f <- [x y]^e
+
+=>
+
+(eval (extend (env (:body f)) (destructuring-bind (:params f) (eval (env [x y]) [x y])))
+      (:body f))
+
+eval <- [_$1 _$2]
+
+_$2 <- :body <- [f]
+
+_$1 <- extend <- [_$3 _$4]
+
+_$3 <- env <- :body <- [f]
+
+_$4 <- destructuring-bind <- [_$5 _$6]
+
+_$5 <- :params <- [f]
+
+_$6 <- eval <- [$_7 [x y]]
+
+_$7 <- env <- [[x y]]
+
+;; At least that's what's roughly going on. The sending should all be written
+;; the other way around since the plasma syntax confuses the fact that we're
+;; almost always waiting on the rightmost term.
+
+;; All _$... symbols are emission targets, that is, continuations, such as they
+;; exist in this language, exist to put values into targets. A vector of targets
+;; is shorthand for an arglist placeholder which waits for all of its values and
+;; then sends to the receiver.
+
+;; The big problem I'm having is reconciling this consistently with lisp syntax.
+;; That probably means I need new syntax. But I don't like syntax...
+
+=>
+
+(with-channels
+  {:return (fn [args]
+             (with-channels
+               {:return
+                (fn [bindings]
+                  (with-channels
+                    {:return (fn [env]
+                               (eval env (:body f)))})
+                  (extend (env (:body f)) bindings))}
+               (destructuring-bind args)))}
+  (eval (env [x y]) [x y]))
+
+(defn eval [env ^arglist xs]
+  (let [ev (accumulator
+            {:init [0 (Arglist. (count xs))]
+             :next (fn [[i args] [j v]]
+                     (let [s' [(inc i) (assoc args j v)]]
+                       (if (= (inc i) (count xs))
+                         (emit {:return args})
+                         (emit {:state s'}))))})]
+    (emit-seq
+     (mapindexed (fn [i x] (with-channels {:return (fn [v] (ev i v))}
+                             (eval env x)))
+                 xs))))
