@@ -1,0 +1,19 @@
+(emit {:a 3 :b 7})^e
+
+=>
+
+(emit-seq [[(resolve e :a) 3] [(resolve e :b) 7]])^e
+
+=>
+
+
+(def emit-seq
+  (rec [[x & xs]]^e
+       (send (resolve e :next) [])))
+
+(def iterate
+  (rec [[x & xs]]
+       (emit {:enqueue (iterate xs)
+              :return x})))
+
+;; It seems like a need a more basic primitive like `pushngo`

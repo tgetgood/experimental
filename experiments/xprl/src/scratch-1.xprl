@@ -1,0 +1,65 @@
+;; scatch copied from chalkboard
+
+(defn map [f]
+  (fn [next]
+    (f next)))
+
+(defn scan [f init]
+  (stateful
+   {:init init
+    :next (fn [state next]
+            (let [s' (f state next)]
+              (emit {:return s'
+                     :state s'})))}))
+
+(def first
+  (let [g (gensym)]
+    (stateful
+     {:init g
+      :next (fn [state next]
+              (if (= g state)
+                (emit {:state   false
+                       ;; By never returning a value normally, this construct
+                       ;; makes strong assumptions on the context in which it
+                       ;; will be called
+                       :reduced next})))})))
+
+(def last
+  (let [g (gensym)]
+    (stateful
+     {:init  g
+      :next  (fn [state next]
+              (emit :state next))
+      :final (fn [state]
+               (if (= state g)
+                 (emit :error "empty seq has no last element")
+                 state))})))
+
+(defn partition [n]
+  (stateful
+   {:init []
+    :next (fn [buff next]
+            (let [b' (conj buff next)]
+              (if (= n (count b'))
+                (emit {:return b'
+                       :state []})
+                (emit :state b'))))
+    :final (fn [buff]
+             (if (< 0 (count buff) n)
+               buff))}))
+
+(defn transduce [xf f to from]
+  ((comp xf (scan [f to]) last) (iterate from)))
+
+;; This requires two built in constructs.
+;;
+;; `iterate` turns a collection in memory into a message source (a collection of
+;; events over time).
+;;
+;; and `stateful` needs to create a lambda like entity which retains state
+;; between calls. State which only it can modify, and which is always modified
+;; *between* calls.
+;;
+;; Thus this stateful lambda object is logically single threaded. It cannot be
+;; called in parallel with itself. All events processed will be totally ordered
+;; in an order subjective to the object. Basically it has a lock built in
