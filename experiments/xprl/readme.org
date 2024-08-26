@@ -28,3 +28,261 @@ reference counting, and message passing based multithreading. Among other
 requirements.
 
 Doesn't that sound fun?
+
+* Design notes
+** A Virtual Machine Base
+   I've been resisting the notion of formally defining a vm.
+
+   Part of that is that I don't quite know what I want yet, but I'm at a point
+   where there's no point continuing without something concrete.
+
+   I also don't want to system tied down. Ideally it would be self bootstrapping
+   all the way down to machine code. But that's for largely theoretical reasons.
+   Though there ~may~ be important applications for trust and security...
+
+   There's no more putting it off.
+*** Memory Model
+    Memory is not addressable arithmetically, only by opaque reference.
+
+    Accessible memory is in one of two states: write only or read only.
+
+    When a value is to be created, memory is allocated in a write only state. At
+    a discrete point in time that memory transitions from write only to read
+    only. This transition produces a reference to the now readable memory. Any
+    use of write references to memory in the read only state is an error.
+
+    I'm unsure of whether it is feasible to require that the write references
+    all be out of scope before the transition to read only can happen. There are
+    obvious benefits to this, if it can be assured.
+
+    All allocated memory is reference counted. Reference counting may be static
+    when possible, but will be dynamic in general.
+
+    When the reference count of a value goes to zero, it is marked as freeable.
+
+    New requests for write-only memory may use these freeable regions without
+    calling going through free/mmap. The memory should be zeroed for security
+    purposes unless it can be proven (in some special circumstance) that all
+    bits will be written.
+
+    One important special case — originating to my knowledge in the im.rs Rust
+    crate, but also basic to the Roc language — is the "persistent mutation"
+    where a function like =conj= or =assoc= takes the only reference to a data
+    structure. In this case the associated memory will be freeable after the
+    call and a new reference to memory largely copied from the defunct region
+    will be returned.
+
+    In this case there's an obvious advantage to mutating the memory in place,
+    reusing both the region and the reference.
+
+    The act is provably unobservable (save for errors in implementation) so
+    there's no reason not to do it.
+
+    The combination of persistent data structures and unobservable mutation
+    solve most of the performance problems associated with immutability, opening
+    up a lot of gains that are impossible when general mutation must be
+    accounted for.
+
+    We will need to prevent serialisation of references, but since memory is not
+    directly addressable, that shouldn't pose a problem. A persistent reference
+    by value system is a separate aspect of the language and likely won't need
+    direct support in the vm.
+
+    As for the currently fashionable use of the term "memory model", writes only
+    need to be monotonic. In fact, they shouldn't even need to be that, since in
+    a "good" implementation any given bit will only ever be written once. The
+    machinery to enforce that dynamically is likely untenable, but since writes
+    are rare and isolated, we can hopefully have a sufficiently simple "unsafe
+    subset" that we can be confident of its correctness.
+*** Sending and Receiving Messages
+    The transition from lisp syntax message passing syntax is loosely based on
+    planner (Smith & Hewitt 1975). In particular, instead of reasoning about
+    sexps in the typical applicative style, we say that function invocation is
+    message passing. That is =(f x y z)= is the same as =f <- [x y z]=. This
+    difference seems trivial at first, but that seeming will fade.
+
+    N.B.: I often use the terms "send a message" and "call a continuation"
+    interchangeably because in this context they are two ways to think about the
+    same thing. The biggest novelty of xprl is that multiple continuations may
+    be called "simultaneously" from one point in a program. Execution doesn't
+    just branch, it forks.
+**** Channels
+     Messages are not sent to actors, functions, etc.. They are sent to
+     channels. Channels are an abstraction to indirect the processing of a
+     message by its receiver from the sender's ~intention~ when sending the
+     message.
+
+     To be more specific: A function may signal an error by sending a message to
+     an error channel. For instance the division function may send a token on a
+     channel named =:error.divide-by-zero= if the intended demoninator is zero.
+     This expresses the fact that =/= cannot proceed. =/= cannot, itself, decide
+     what to do about that fact, it can only punt. The caller of =/= needs to
+     bind this error channel to some processing facility.
+
+     This is similar to exceptions/escapes in most languages, but it isn't a
+     ~special~ mechanism. It's the *only* mechanism.
+
+     Most functions will emit a single message on the =:return= channel. This is
+     so prevalent that we don't require an explicit call to =emit= for this, but
+     simply insert =(emit :return ...)= around the "return value" of a function.
+
+     But it's possible for a function to have multiple "normal return" channels.
+     For instance =split= is a function akin to =filter= but which emits values
+     on one of two channels depending on a predicate.
+
+     I'm playing with the idea of implementing =if= that way as well, but it
+     seems an unnecessary indulgence.
+
+     Functions may define default bindings for their channels. This will be
+     appropriate only in some circumstances. All channels begin by being bound
+     to a function which logs messages to otherwise unbound channels.
+
+     The =with-channels= construct is the primary way to bind receivers to
+     channels.
+
+     I'm not yet sure whether we need support in the vm to lookup bindings for
+     channels.
+**** Emission
+     It is possible, in general, for a function to send multiple messages to
+     multiple receivers from tail position. In this case those messages must be
+     queued up by the runtime and delivered one at a time. The order of delivery
+     is undefined since multiple execution threads may steal work from one
+     another.
+
+     To avoid the overhead of returning to the executor's main loop after every
+     function call, single emissions should be executed in line.
+
+     We can also save a little work by pushing all but the first (last?) message
+     and directly executing the remaining one without pushing and poping the
+     stack.
+**** Receivers
+     Receivers are things that receive messages. Effectively continuations. But
+     they may be called zero or more times.
+
+     A lot of things will be highly simplified if it's possible to know when a
+     continuation will never be called again.
+
+     One basic example is =(get m x default)=. =(get m x)= will exit without
+     emitting anything if =x= is not in =m=. We'd like a way to catch the fact
+     that there will be no emission and use that to trigger the default
+     emission.
+
+     Is this the wrong place for that? Should we be thinking about closing
+     channels instead? But are channels reified routers, or just names?
+
+     There is no =nil= in the language, so the only way a function could fail to
+     emit would be to call (emit) with no args. We can use that to send a
+     message to a =:no-emit= channel if it's bound.
+
+     But in the case of a stateful, we need to know if a channel which has
+     received multiple messages is "closed" in the sense that it will never
+     receive another.
+
+     The runtime can know that by reference counting, can it not? Or do we need
+     a special =:close!= or =:reduced= channel? =:reduced= certainly has its
+     uses when processing sequences. Can these be bundled into one?
+
+     No. =:reduced= can only work if there's a single sender to a channel. If
+     there are multiple senders, they cannot know if the others are finished or
+     not.
+
+     Plus =:reduced= conveys a final message whereas =:closed= says there are no
+     more messages so use your state. They're different.
+
+     This is an especially important consideration for accumulators since we
+     really want to minimise overhead as they will come up everywhere.
+
+     Will it be better to have accumulators manage their own lifecycle or use
+     runtime knowledge to save the work?
+**** Accumulators
+     (eval env (f x y z))
+
+     becomes something like
+
+     f <- [(eval env x) (eval env y) (eval env z)]
+
+     =>
+
+     f <- [$1 $2 $3]
+
+     $1 <- eval <- [env x]
+
+     $2 <- eval <- [env y]
+
+     $3 <- eval <- [env z]
+
+     The three calls to =eval= are independent and may be passed to multiple
+     copies of eval at once (evaluation should be stateless).
+
+     That leaves us with the problems of where to store values until we have
+     enough to continue as well as how to coordinate that continuation.
+
+     So: an accumulator is a write-only region of memory together with a
+     continuation which receives values to store in the accumulator. That
+     continuation is responsible for knowing when all values have been
+     accumulated and continuing the computation.
+
+     In the case of =f <- [$1 $2 $3]= the accumulator is a region of memory
+     allocated to contain the three values (how do we figure out how big it
+     should be?) and the continuation is something like:
+
+     #+BEGIN_SRC clojure
+     (def acc
+       (stateful
+        {:init [3 (Accumulator. ...)]
+         :next (fn [[i acc] [j v]]
+                 (let [v' (assoc acc j v)]
+                   (if (= i 1)
+                     (emit :next v')
+                     (emit :state [(dec i) v']))))})
+     #+END_SRC
+
+     Where the =:state= channel calls a continuation which updates the internal
+     state and awaits the next message, and the =:next= continuation (should it
+     just be =:return=?) is bound to =(fn [args] (apply f args))=.
+
+     Now we can define the calls to eval:
+
+     $1 <- eval <- [env x]
+
+     becomes
+
+     (with-channels {:return (fn [x] (send acc [1 x]))} (eval env x))
+
+     Where =send= is like =emit= but sends directly to a receiver without
+     indirecting through a channel. I'd like =send= to be implementation
+     internal, but I don't know if that's possible.
+
+     The idea I refer to as =stateful= above is logically more primitive that an
+     accumulator. It remains to be seen whether it can be effectively
+     implemented that way.
+**** Stateful Receivers
+     Stateless receivers are just functions, so I'll skip them for now.
+
+     A stateful receiver, as seen in the previous example, is special in that it
+     is intended to receive multiple messages but must process them one at a
+     time in some order.
+
+     There are a few questions here:
+
+     - How do we ensure the stateful only processes one message at a time?
+       - a queue?
+       - parking callers?
+         basically spinlocks (maybe with batched polling).
+     - How do we implement the self referential =:state= continuation?
+       - Finite state machine?
+     - How do we ensure messages are processed in the correct order in the face
+       of work stealing?
+       - Does using an fsm solve this too? It might.
+       - How important is the prospect of automatic pipeline parallelism?
+         I.e. Do we need to be able to steal statefuls?
+         My current thinking is that it's indispensible. It would be pretty
+         awesome in any case.
+
+     The simplest answer to the combined questions above seems to be an fsm and
+     a many-writer-one-reader lock free queue.
+
+     Finally, is there a lower level (and simpler) construct that I can use to
+     implement both statefuls and accumulators? Afterall, accumulators *should*
+     be able to receive all of their messages in parallel and so creating and
+     managing a queue is unnecessary overhead.

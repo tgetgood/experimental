@@ -1,0 +1,20 @@
+(defn / [n d]
+  (if (zero? d)
+    (emit :error.divide-by-zero 0)
+    (unchecked-divide n d)))
+
+(defn harmonic-mean [xs]
+  (with-channels {:error.divide-by-zero (fn [_] 0)}
+    (/ 1 (transduce (map (fn [x] (/ 1 x))) + xs))))
+
+
+;; in the following `/^e` is `/` in the context of the `with-channels` call
+;; above. That is messages sent on `:error.divide-by-zero` are redirected to the
+;; function `(fn [_] 0)`.
+
+;; This works because of the peculiar definition of harmonic mean, so this
+;; example is contrived, but it's still a nice one.
+
+[1 $1] -> /^e
+
+[$2 + xs] -> transduce -> $1
