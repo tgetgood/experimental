@@ -256,6 +256,52 @@ Doesn't that sound fun?
      The idea I refer to as =stateful= above is logically more primitive that an
      accumulator. It remains to be seen whether it can be effectively
      implemented that way.
+***** Take II
+      What if we instead define an accumulator as a size (number of bits) and a
+      cover of non-overlapping intervals within that number. The easy case is an
+      array, a stride, and n sections of length stride. But arguments need not
+      be of the same type, so it may be irregular.
+
+      Maybe go about it the other way: an accumulator is a list of accumulants.
+      Each accumulant has a size and receives a value of that size. Each
+      accumulant can receive exactly one message. When all accumulants have
+      received a message, the aggregate is transitioned to read-only and sent to
+      the pre-established continuation. Importantly the accumulants can receive
+      their messages in any order, including in parallel. No locking. No
+      queueing. That might be tricky.
+
+      So the accumulant is the basic construct. A region of memory which will be
+      set in a single write operation.
+
+      So if an accumulant is to receive a message telling it what to accumulate,
+      ~what~ is that message? Really the accumulant should be the scratch space
+      used in creating the value. unless the value is passed in registers and
+      the accumulant is our abstraction around =store=.
+
+      But I don't want to assert that accumulated values won't be passed in
+      registers. Ideally they would be. That's beyond my current understanding,
+      however.
+
+      Since accumulants are write-once, values can be written to the stack of
+      one executor by another. We don't need heap necessarily. But cache
+      invalidation might be a problem.
+
+      That's an empirical issue. Work won't generally be stolen unless it takes
+      awhile to finish or the system is seriously underloaded.
+
+      I'm getting sidetracked. I'll need to think about optmisation later, but
+      right now I have a way forward.
+
+      An accumulant is a (logical?) region to be written once.
+
+      An accumulator is a list of contiguous accumulants that tracks writes and
+      calls a continuation when all writes are complete (after converting the
+      region to read only).
+
+      This is how we make sure no write refs remain after the conversion to read
+      only.
+
+      I'm not even going to try to implement this in xprl for the time being.
 **** Stateful Receivers
      Stateless receivers are just functions, so I'll skip them for now.
 
