@@ -1,0 +1,7 @@
+name = "xprl"
+uuid = "103942f8-e8d2-40d8-be4d-2fef9fbdbe7f"
+authors = ["Thomas Getgood <thomas@macroexpanse.com>"]
+version = "0.1.0"
+
+[deps]
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
