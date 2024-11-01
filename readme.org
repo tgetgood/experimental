@@ -1104,7 +1104,7 @@ It's a big project. Be patient. Even I'm not holding my breath.
    1. References within a small unit of context should be small.
       If you're only referring to a couple of hundred things, you don't need 64
       bit pointers.
-   2. All references within any unit of context must be unambiguous and unique.
+   2. All references within any unit of context must be unambiguous.
 
    There is no universal point of reference, no God's eye point of view, from
    which to number and order all things. Special relativity, quantum mechanics,
@@ -1389,7 +1389,7 @@ It's a big project. Be patient. Even I'm not holding my breath.
    none the wiser, so long as `get` passes on the correct place to yield the
    eventual value.
 
-   So if `get` finds a value to return that value finds its way back to the
+   So if `get` finds a value to return, that value finds its way back to the
    let statement which binds it to the name `v`, and control moves on to the
    body of `let`. Similarly if `when` decides to pass on control to its body
    then eventually `*` is passed `v` twice, does whatever it does and sends
